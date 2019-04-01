@@ -76,7 +76,7 @@ P_tot = []
 print('Tot_nodes Bad_nodes Committee Threshold  index   Probability to control')
 for j in range(0, len(no_of_nodes)):
     P_tot.append(hdp.probability(bft_threshold[j], no_of_bad_actors[j], committee_size[j], no_of_nodes[j]))
-    print(' %3s  %3s  %3s  %3s    j=%3s     P_tot= %-20s' % \
+    print('    %3s      %3s        %3s     %3s      j=%3s   P_tot= %-20s' % \
         (no_of_nodes[j], no_of_bad_actors[j], committee_size[j], bft_threshold[j], j, P_tot[j]))
 
 import matplotlib.pyplot as plt
