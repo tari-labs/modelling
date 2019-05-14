@@ -94,6 +94,8 @@ $$
 ## Results 
 (What you found)
 
+- As the commitee size increases, the probability increases 
+
 ### Plots 
 
 ### Demonstration 
