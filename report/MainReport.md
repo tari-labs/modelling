@@ -1,16 +1,45 @@
-# Probability of Attack Model 
+# Probabilistic Attack Vector
 
-- - [Introduction](#introduction)
-		- Types of Distribution (#types-of-distribution)
-			- Hypergeometric Distribution (#hypergeometric-distribution)
-			- Binomial Distribution (#binomial-distribution)
-	- [Conclusion, Observations and Recommendations](#conclusions-observations-and-recommendations)
-	- [References](#references)
-	- [Contributions](#contributors) 
+- [Introduction](#introduction)
+	- [Aim](#aim)
+	- [The Tari Digital Assets Network](#the-tari-digital-assets-network)  
+- [Literature Review](#literature review)
+	- [Types of Distribution](#types-of-distribution)
+		- [Hypergeometric Distribution](#hypergeometric-distribution)
+		- [Binomial Distribution](#binomial-distribution)
+- [Methodology](#methodology)
+	- [Notation Used](#notation-used)
+	- [Formulae](#formulae)
+		- [Hypergeometric Distribution](#hypergeometric-distribution)
+		- [Binomial Distribution](#binomial distribution)
+		- [Summation](#summation)
+	- [Explanation of hypergeometric distribution ](#combinations)
+	- [The Use of Python](#the-use-of-python)
+- [Results](#results)
+	- [Plots](#plots) 
+	- [Demonstration](#demonstration)
+- [Discussion](#discussion) 
+- [Conclusion and Recommendations](#conclusions-and-recommendations)
+- [References](#references)
+- [Contributions](#contributors) 
 
 ## Introduction
+(What you researched and why)
 
-The question that was posed is what is the probability of an attacker controlling the majority of nodes in the network? 
+### Aim 
+This research aims to provide answers to questions about the Tari DAN environment: Probabilistic ttack vector with regards to the total nodes, compromised nodes, committee size and BFT threshold.
+
+### The Tari Digital Assets Network 
+Digital assets (DAs) are managed by committees of special nodes, Validator nodes . 
+
+Validator nodes form committees to manage the digital assets, their state change and ensures that the rules governing asset contracts are enforced. 
+
+Where was the idea borne from? 
+
+There would be a pool with *N* nodes, the pool contains *m* malicious nodes or bad actors,  within the pool a random selection of nodes are drawn *n*, from that selection the probablity of drawning a threshold of bad actors *T* needs to be calculated.  
+
+## Literature Review 
+(Other relevant research in this area)
 
 ### Types of Distribution 
 
@@ -26,7 +55,12 @@ Selecting nodes without replacement, i.e. selecting all 6 nodes at once
 
 The binomial distribution with parameters Selecting nodes with replacement, i.e. selecting each node, noting whether it is malicious or friendly and returning back to the committee. [[4]]
 
-### Variables 
+## Methodolgy 
+(What you did and how you found it)
+
+### Notation Used  
+
+This section conmtains the general notation of statistical expressions when specifically referenced. This information serves as important pre-knolwedge for the remainder of the report. 
 
 - Let $N$ be the total number of nodes in the network 
 - Let $n$ be the committee size
@@ -35,19 +69,19 @@ The binomial distribution with parameters Selecting nodes with replacement, i.e.
 
 ### Formulae
 
-##### Hypergeometric Distribution 
+#### Hypergeometric Distribution 
 
 $$
 P=\frac{mCT . (N-m)C(n-T)}{NCn}
 $$
 
-##### Binomial Distribution  
+#### Binomial Distribution  
 
 $$
 P=nCT.\biggl(\frac{m}{n}\biggr)^{T}.\biggl(\frac{N-m}{n}\biggr)^{n-T}
 $$
 
-##### Summation 
+#### Summation 
 
 $$
 P_{tot} = \sum_{i=T}^{n} P(N,m,n,i)
@@ -55,12 +89,20 @@ $$
 
 ### Explanation of hypergeometric distribution (combinations)
 
-### Simple plot with verification 
+### The Use of Python 
+
+## Results 
+(What you found)
+
+### Plots 
 
 ### Demonstration 
 
-## Conclusion, Observations and Recommendations
+## Discussion 
+(Relevance of your results, how it fits with other research in the area)
 
+## Conclusion and Recommendations
+(Summary of results/findings and what needs to be done as a reuslt of your findings)
 
 ## References
 
