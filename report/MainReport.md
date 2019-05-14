@@ -62,10 +62,10 @@ The binomial distribution with parameters Selecting nodes with replacement, i.e.
 
 This section conmtains the general notation of statistical expressions when specifically referenced. This information serves as important pre-knolwedge for the remainder of the report. 
 
-- Let $N$ be the total number of nodes in the network 
-- Let $n$ be the committee size
-- Let $m$ be the number of bad actors 
-- Let $T$ be the BFT threshold (at least two thirds, however in this case it may vary) 
+- Let $N$ be the total number of nodes in the network *set size* 
+- Let $n$ be the committee size *sample_size*
+- Let $m$ be the number of bad actors *no_of_type_in_set*
+- Let $T$ be the BFT threshold *type threshold*
 
 ### Formulae
 
@@ -94,7 +94,33 @@ $$
 ## Results 
 (What you found)
 
+- Certain variables that remain constant 
+	- Total nodes, *N* = 500 
+	- Bad nodes, *m* = 300 
+- Committee size and Threshold increases as the array increases 
+- As the commitee size increases, the threshold increases  
 - As the commitee size increases, the probability increases 
+- So, the greater the sample size the greater the chance of there being bad nodes in the set drawn 
+
+| Total Nodes | Bad Nodes | Committee Size | Threshold | Probability |
+| ----------- | --------- | -------------- | --------- | ----------- |
+| 500         | 300       | 10             | 5         |             |
+| 500         | 300       | 20             | 10        |             |
+| 500         | 300       | 30             | 12        |             |
+| 500         | 300       | 40             | 20        |             |
+| 500         | 300       | 50             | 25        |             |
+| 500         | 300       | 60             | 30        |             |
+| 500         | 300       | 70             | 35        |             |
+| 500         | 300       | 80             | 40        |             |
+| 500         | 300       | 90             | 45        |             |
+| 500         | 300       | 100            | 50        |             |
+| 500         | 300       | 110            | 55        |             |
+| 500         | 300       | 120            | 60        |             |
+| 500         | 300       | 130            | 65        |             |
+| 500         | 300       | 140            | 70        |             |
+| 500         | 300       | 150            | 75        |             |
+
+
 
 ### Plots 
 
