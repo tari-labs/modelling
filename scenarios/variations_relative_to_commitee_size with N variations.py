@@ -229,30 +229,15 @@ for j in range(0, len(committee_size_1000)):
     print('    %3s      %3s        %3s     %3s      j=%3s   P_tot= %-20s' % \
         (no_of_nodes, no_of_bad_actors, committee_size_1000[j], bft_threshold[j], j, P_tot_1000[j]))
 
-import matplotlib.pyplot as plt
-
 #Plots
 
-#fig, ax1 = plt.subplots(figsize=(12,9))   
-#ax2 = ax1.twinx()
+## Standard graph settings 
+fig, ax1 = plt.subplots(figsize=(12,9))   
+ax1.grid(True, linestyle='-.')
+ax1.xaxis.grid(True, which='minor', linestyle='-.')
 
-#ax1.set_xlabel('Committee Size', fontsize='18')
-#ax1.set_ylabel('Probability of bad actors controlling the network', fontsize='18')
-#ax1.tick_params(axis='both', labelsize='14')
- 
-#ax1.grid(True, linestyle='-.')
-#ax1.xaxis.grid(True, which='minor', linestyle='-.')
-
-#x = committee_size_1000
-#y1 = P_tot_300
-
-
-#ax1.plot(x, y1, 'g-', label='N = 300')
-#ax2.plot(x, y4, 'y-', label='N = 400')
-#ax2.plot(x, y4, 'b-', label='N = 500')
-#ax2.plot(x, y4, 'r-', label='N = 1000')
-#ax1.legend(fontsize='16', loc=3)
-#ax2.legend(fontsize='16', loc=4)
+ax1.set_xlabel('Committee Size', fontsize='18')
+ax1.set_ylabel('Probability of bad actors controlling the network', fontsize='18')
 
 plt.plot(committee_size_300, P_tot_300, 'b-', label='N = 300')
 plt.plot(committee_size_400, P_tot_400, 'r-', label='N = 400')
@@ -260,4 +245,5 @@ plt.plot(committee_size_500, P_tot_500, 'y-', label='N = 500')
 plt.plot(committee_size_1000, P_tot_1000, 'g-', label='N = 1000')
 plt.legend(loc='best')
 plt.show()
+
 

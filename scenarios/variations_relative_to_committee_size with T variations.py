@@ -284,8 +284,18 @@ for j in range(0, len(committee_size_500_67)):
     print('    %3s      %3s        %3s     %3s      j=%3s   P_tot= %-20s' % \
         (no_of_nodes, no_of_bad_actors, committee_size_500_67[j], bft_threshold[j], j, P_tot_500_67[j]))
 
+#Plots
 
 import matplotlib.pyplot as plt
+
+## Standard graph settings 
+fig, ax1 = plt.subplots(figsize=(12,9))   
+ax1.grid(True, linestyle='-.')
+ax1.xaxis.grid(True, which='minor', linestyle='-.')
+
+ax1.set_xlabel('Committee Size', fontsize='18')
+ax1.set_ylabel('Probability of bad actors controlling the network', fontsize='18')
+
 
 plt.plot(committee_size_500_50, P_tot_500_50, 'c-', label='T = 50')
 plt.plot(committee_size_500_55, P_tot_500_55, 'm-', label='T = 55')

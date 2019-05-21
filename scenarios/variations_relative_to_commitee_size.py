@@ -74,27 +74,19 @@ for j in range(0, len(committee_size)):
     print('    %3s      %3s        %3s     %3s      j=%3s   P_tot= %-20s' % \
         (no_of_nodes, no_of_bad_actors, committee_size[j], bft_threshold[j], j, P_tot[j]))
 
-import matplotlib.pyplot as plt
-
 #Plots
 
-fig, ax1 = plt.subplots(figsize=(12,9))   
-ax2 = ax1.twinx()
+import matplotlib.pyplot as plt
 
-ax1.set_xlabel('Committee Size', fontsize='18')
-ax1.set_ylabel('Probability of bad actors controlling the network', fontsize='18')
-ax2.set_ylabel('Number of nodes', fontsize='18')
-ax1.tick_params(axis='both', labelsize='14')
-ax2.tick_params(axis='both', labelsize='14')
- 
+# Standard graph settings 
+
+fig, ax1 = plt.subplots(figsize=(12,9))   
 ax1.grid(True, linestyle='-.')
 ax1.xaxis.grid(True, which='minor', linestyle='-.')
 
-x = committee_size
-y1 = P_tot
-y4 = bft_threshold
+ax1.set_xlabel('Committee Size', fontsize='18')
+ax1.set_ylabel('Probability of bad actors controlling the network', fontsize='18')
 
-ax1.plot(x, y1, 'g-', label='Probability')
-ax2.plot(x, y4, 'y-', label='BFT threshold')
-ax1.legend(fontsize='16', loc=3)
-ax2.legend(fontsize='16', loc=4)
+plt.plot(committee_size, P_tot, 'g-', label='N = 500')
+plt.legend(loc='best')
+plt.show()
