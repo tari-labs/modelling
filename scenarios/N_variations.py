@@ -3,6 +3,9 @@
 """
 Created on Tue Mar 26 11:46:27 2019
 
+This scenario sees the analysis of bad attackers with variations in the total number of nodes (300, 400, 500, 1000)
+There is a fixed BFT threshold (67%), and variation in committee size is dependent on the total number of nodes. 
+
 @author: kevoulee
 """
 
@@ -231,6 +234,8 @@ for j in range(0, len(committee_size_1000)):
 
 #Plots
 
+import matplotlib.pyplot as plt
+
 ## Standard graph settings 
 fig, ax1 = plt.subplots(figsize=(12,9))   
 ax1.grid(True, linestyle='-.')
@@ -245,5 +250,3 @@ plt.plot(committee_size_500, P_tot_500, 'y-', label='N = 500')
 plt.plot(committee_size_1000, P_tot_1000, 'g-', label='N = 1000')
 plt.legend(loc='best')
 plt.show()
-
-

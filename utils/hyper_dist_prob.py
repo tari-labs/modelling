@@ -3,6 +3,14 @@
 """
 Created on Tue Mar 26 11:42:37 2019
 
+Input: An example problem using a deck of cards will be used to demonstrate definition of the terms
+What is the probability of receiving 2 Kings from a deck of 52 playing cards (containing 4 Kings) 
+when 6 cards are drawn from the deck 
+type_threshold is the number of a specific item from which the probability is calculated (e.g. 2 Kings)
+no_of_type_in_set is the number of the specific item found amongst the total number of items (e.g.4 Kings within the deck of 52 playing cards) 
+sample_size is the set of items that are drawn from the total (e.g. 6 cards drawn from the deck )
+set_size is the total number of the items in the set (e.g. the 52 cards in a deck of playing cards)
+
 @author: kevoulee
 """
 
@@ -19,14 +27,6 @@ def nCk(n,k):
     if (n - k) < 0 or n < 0 or k < 0:
         return 0;
     return np.float64((Decimal(math.factorial(n)) / Decimal(math.factorial(n - k))) / Decimal(math.factorial(k)))
-
-# An example problem using a deck of cards will be used to demonstrate definition of the terms
-    # What is the probability of receiving 2 Kings from a deck of 52 playing cards (containing 4 Kings) 
-    # when 6 cards are drawn from the deck 
-## type_threshold is the number of a specific item from which the probability is calculated (e.g. 2 Kings)
-## no_of_type_in_set is the number of the specific item found amongst the total number of items (e.g.4 Kings within the deck of 52 playing cards) 
-## sample_size is the set of items that are drawn from the total (e.g. 6 cards drawn from the deck )
-## set_size is the total number of the items in the set (e.g. the 52 cards in a deck of playing cards)
 
 def probability(type_threshold, no_of_type_in_set, sample_size, set_size) -> np.float64:
     #Type checking - Python does not have built-in type checking   

@@ -3,6 +3,10 @@
 """
 Created on Tue Mar 26 11:46:27 2019
 
+This scenario sees the analysis of bad attackers with a fixed total number of nodes
+and BFT threshold. 
+Variation in committee size is dependent on the total number of nodes. 
+
 @author: kevoulee
 """
 
