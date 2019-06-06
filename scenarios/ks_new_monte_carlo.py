@@ -17,13 +17,21 @@ import matplotlib.pyplot as plt
 
 #the creation of a node 
 class node:
-    position = 0  #This represents then node ID
+    position = -1  #This represents then node ID
     malicious = False
         
-def create_network(total_nodes):
+def create_network(total_nodes, distribution_type):
     network_nodes = [node() for i in range(total_nodes)]
-    for i in range(len(network_nodes)):
-        network_nodes[i].position = i
+    vec = [-1 for i in range(total_nodes)]
+    exit_condition = np.int64(0)
+    for i in range(len(network_nodes)): 
+        while vec[i] < 0 and exit_condition < len(network_nodes) * 1000:
+            index = get_random_index(distribution_type, 0, len(network_nodes)-1)
+            if vec.count(index) == 0: #If not found
+                network_nodes[i].position = index
+                vec[i] = index
+            else:
+                exit_condition += 1      
     return network_nodes
 
 def get_random_index(distribution_type, lower_bound, upper_bound):
@@ -42,12 +50,16 @@ def assign_bad_nodes(network_nodes, bad_nodes, distribution_type):
             network_nodes[i].malicious = True
         return network_nodes
     #If some nodes are bad
+    exit_condition = np.int64(0)
     count = 0
-    while count < bad_nodes:
+    while count < bad_nodes and exit_condition < len(network_nodes) * 1000:
         index = get_random_index(distribution_type, 0, len(network_nodes)-1)
         if network_nodes[index].malicious != True:
             network_nodes[index].malicious = True
             count += 1
+        else:
+            exit_condition += 1
+    print ('repeat_factor: ', (exit_condition/len(network_nodes)))
     return network_nodes
 
 def assign_committee(network_nodes, committee_size, distribution_type):
@@ -85,13 +97,21 @@ M = 0  # no of successes
 max_value = 0
 histogram_of_randomness = np.int64(np.zeros((2, total_nodes)))
 #Create network
-nodes = create_network(total_nodes)
+nodes = create_network(total_nodes, "uniform_ditribution")
 #Assign bad nodes
 nodes = assign_bad_nodes(nodes, bad_nodes, "uniform_ditribution")
+print ('\nnodes = assign_bad_nodes(nodes, bad_nodes, "uniform_ditribution")\n')
+for i in range(len(nodes)):
+    print ('Node %s, position %s, malicouos %s' % (i, nodes[i].position, nodes[i].malicious))
+print ('\n')
 #Experiment
 for e in range(N):
     #Create committe
     committee = assign_committee(nodes, n, "uniform_ditribution")
+    print ('\ncommittee = assign_committee(nodes, n, "uniform_ditribution")\n')
+    for i in range(len(committee)):
+        print ('Committee %s, position %s, malicouos %s' % (i, committee[i].position, committee[i].malicious))
+    print ('\n')
     #Create histogram to test random function 
     for i in range(len(committee)):
         if committee[i].malicious == True:
@@ -117,7 +137,7 @@ print ('Probability', float(M)/N)
 
 print (histogram_of_randomness)
 
-
+"""
 ## Standard graph settings 
 fig, ax1 = plt.subplots(figsize=(12,9))   
 ax1.grid(True, linestyle='-.')
@@ -134,3 +154,4 @@ plt.plot(x, A, 'b-')
 plt.ylim((0, max_value))
 plt.legend(loc='best')
 plt.show()
+"""
