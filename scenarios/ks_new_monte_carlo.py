@@ -20,6 +20,7 @@ class node:
     position_in_network = -1  #This represents then node ID
     malicious = False
     node_id = -1
+    index = -1
         
 def create_network(total_nodes, distribution_type):
     #Create basic nodes in the network
@@ -30,19 +31,23 @@ def create_network(total_nodes, distribution_type):
     for i in range(len(network_nodes)): 
         while vec[i] < 0 and exit_condition < len(network_nodes) * 1000:
             exit_condition += 1      
-            index = get_random_index(distribution_type, 0, len(network_nodes)-1)
-            if vec.count(index) == 0: #If not found
-                network_nodes[i].position_in_network = index
-                vec[i] = index
+            position_in_network = get_random_index(distribution_type, 0, len(network_nodes)-1)
+            if vec.count(position_in_network) == 0: #If not found
+                network_nodes[i].position_in_network = position_in_network
+                vec[i] = position_in_network
     #Assign node_id to the node
     vec = [-1 for i in range(total_nodes)]
     for i in range(len(network_nodes)): 
         while vec[i] < 0 and exit_condition < len(network_nodes) * 1000:
             exit_condition += 1      
-            index = get_random_index(distribution_type, 1e6, 1e7)
-            if vec.count(index) == 0: #If not found
-                network_nodes[i].node_id = index
-                vec[i] = index
+            node_id = get_random_index(distribution_type, 1e6, 1e7)
+            if vec.count(node_id) == 0: #If not found
+                network_nodes[i].node_id = node_id
+                vec[i] = node_id
+     #Assign index to the node
+    for i in range(len(network_nodes)): 
+        network_nodes[i].index = i
+    #return assigned vector of nodes
     return network_nodes
 
 def get_random_index(distribution_type, lower_bound, upper_bound):
@@ -70,7 +75,7 @@ def assign_bad_nodes(network_nodes, bad_nodes, distribution_type):
         if network_nodes[index].malicious != True:
             network_nodes[index].malicious = True
             count += 1
-    print ('repeat_factor: ', (exit_condition/len(network_nodes)))
+    #print ('\nrepeat_factor: ', (exit_condition/len(network_nodes)))
     return network_nodes
 
 def assign_committee(network_nodes, committee_size, distribution_type):
@@ -106,9 +111,9 @@ def assign_committee(network_nodes, committee_size, distribution_type):
         print('Error! Duplicates nodes found in the proposed committee, committee not assigned.')
     return committee
 
-total_nodes = int(input('What is the total amount of nodes?'))
-bad_nodes = int(input('What is the amount of bad nodes?'))
-bft_threshold = int(input('What is the BFT threshold?'))
+total_nodes = int(input('What is the total amount of nodes? '))
+bad_nodes = int(input('What is the amount of bad nodes? '))
+bft_threshold = int(input('What is the BFT threshold? '))
 n = int(input('How many nodes are to be drawn? '))
 N = int(input('How many experiments? '))
 
@@ -124,10 +129,10 @@ nodes = create_network(total_nodes, "uniform_ditribution")
 nodes = assign_bad_nodes(nodes, bad_nodes, "uniform_ditribution")
 print ('\nnodes = assign_bad_nodes(nodes, bad_nodes, "uniform_ditribution")\n')
 for i in range(len(nodes)):
-    print ('Node %s, node ID %s, position_in_network %s, malicouos %s' % (i, nodes[i].node_id, nodes[i].position_in_network, nodes[i].malicious))
+    print ('Node %s, node ID %s, position_in_network %s, malicouos %s' % (nodes[i].index, nodes[i].node_id, nodes[i].position_in_network, nodes[i].malicious))
 print ('\n')
 #Experiment
-for e in range(N):
+for k in range(N):
     #Create committe
     committee = assign_committee(nodes, n, "uniform_ditribution")
 #    print ('\ncommittee = assign_committee(nodes, n, "uniform_ditribution")\n')
@@ -136,15 +141,12 @@ for e in range(N):
 #    print ('\n')
     #Create histogram to test random function 
     for i in range(len(committee)):
+        j = committee[i].index
         if committee[i].malicious == True:
-           histogram_of_randomness[0][i] += 1
+           histogram_of_randomness[0][j] += 1
         else:
-            histogram_of_randomness[1][i] += 1
-        if histogram_of_randomness[0][i] > max_value:
-            max_value = histogram_of_randomness[0][i]
-        if histogram_of_randomness[1][i] > max_value:
-            max_value = histogram_of_randomness[1][i]   
-        histogram_of_randomness[2][i] += 1
+            histogram_of_randomness[1][j] += 1
+        histogram_of_randomness[2][j] += 1
     #Count malicious nodes
     count = 0
     for i in range(len(committee)):
@@ -154,13 +156,18 @@ for e in range(N):
     if count >= bft_threshold: 
         M += 1
 
+#Get distribution_of_bad_nodes
+distribution_of_bad_nodes = [-1 for i in range(len(nodes))]
+for i in range(len(nodes)):
+    distribution_of_bad_nodes[nodes[i].position_in_network] = nodes[i].malicious
+
 #Probability of control
-print ('Probability', float(M)/N)
+print ('\nProbability %s\n' % (float(M)/N))
 
 
-print (histogram_of_randomness)
+#print (histogram_of_randomness)
+print (distribution_of_bad_nodes)
 
-"""
 ## Standard graph settings 
 fig, ax1 = plt.subplots(figsize=(12,9))   
 ax1.grid(True, linestyle='-.')
@@ -170,11 +177,10 @@ ax1.set_xlabel('Index', fontsize='18')
 ax1.set_ylabel('histogram_of_randomness', fontsize='18')
 
 
-A = histogram_of_randomness[1]
-x = np.arange(0,len(histogram_of_randomness[0]))
+x = np.arange(0,len(histogram_of_randomness[2]))
+y = histogram_of_randomness[2]
 
-plt.plot(x, A, 'b-')
-plt.ylim((0, max_value))
+plt.plot(x, y, 'b-')
+plt.ylim((0, max(histogram_of_randomness[2])))
 plt.legend(loc='best')
 plt.show()
-"""

@@ -48,12 +48,12 @@ bad_actors_percentage = 0.6
 ## Percentage of Committee size
 
 committee_size = []
-committee_size_percentage = 0.6
+committee_size_percentage = 0.25
 
 ## BFT threshold percentage 
 
 bft_threshold = []
-bft_threshold_percentage = 0.5
+bft_threshold_percentage = 0.67
 
 # Populate input arrays 
 
