@@ -9,7 +9,7 @@ Created on Fri May 31 13:58:06 2019
 import random
 import numpy as np
 import matplotlib.pyplot as plt
-from statistics import mean, median, mode, stdev 
+from statistics import mean, median, mode, stdev, StatisticsError
 
 #-----------------------------------------------------------------------------
 #Class definitions
@@ -142,51 +142,54 @@ def assign_committee(network_nodes, committee_size, distribution_type):
     return committee
 
 #???
-def run_experiment(total_nodes, bad_nodes, bft_threshold, committe_size):
-    # Create a new committee
-    committee = assign_committee(nodes, committe_size, "uniform_ditribution")
-    # Create histogram to test random function
-    for i in range(len(committee)):  
-        j = committee[i].index
-        if committee[i].malicious == True:  
-            histogram_of_randomness[0][j] += 1
-        else:
-            histogram_of_randomness[1][j] += 1
-        histogram_of_randomness[2][j] += 1
-    # Test of committe has more malicious nodes than BFT threshold
-    count = 0
-    for i in range(len(committee)):
-        if committee[i].malicious == True:
-            count += 1
-    if count >= bft_threshold:
-        return True
-    else:
-        return False
+def run_experiment(nodes, committe_size, bft_threshold, no_of_draws) -> np.float64:
+    M = np.float64(0)
+    for m in range(no_of_draws):
+        # Create a new committee
+        committee = assign_committee(nodes, committe_size, "uniform_ditribution")
+        # Count number of times each node has been assigned to a committee
+        for i in range(len(committee)):  
+            j = committee[i].index
+            if committee[i].malicious == True:  
+                histogram_of_randomness[0][j] += 1
+            else:
+                histogram_of_randomness[1][j] += 1
+            histogram_of_randomness[2][j] += 1
+        # Test of committee has more malicious nodes than BFT threshold
+        count = 0
+        for i in range(len(committee)):
+            if committee[i].malicious == True:
+                count += 1
+        if count >= bft_threshold: 
+            M += 1
+    return M/no_of_draws #calculated probability
 
 #-----------------------------------------------------------------------------
 #Main program
 #-----------------------------------------------------------------------------
 
 total_nodes = int(input('What is the total amount of nodes? '))
-bad_nodes = int(input('What is the amount of bad nodes? '))
+no_of_bad_nodes = int(input('What is the amount of bad nodes? '))
 committe_size = int(input('How many nodes are to be drawn? '))
 bft_threshold = int(input('What is the BFT threshold within the committee? '))
+no_of_draws = int(input('What is the no of draws within an experiment? '))
 no_of_experiments = int(input('How many experiments?')) 
-print("\n")
+print("\n\n")
 
 histogram_of_randomness = np.int64(np.zeros((3, total_nodes)))
 nodes = create_network(total_nodes, "uniform_ditribution")
-nodes = assign_bad_nodes(nodes, bad_nodes, "uniform_ditribution")
+nodes = assign_bad_nodes(nodes, no_of_bad_nodes, "uniform_ditribution")
 
 #Run the experiments
 x = list(range(no_of_experiments))
 probabilities = []
-M = 0
+average_prob = 0;
+convergence = []
 for i in range(no_of_experiments):
-    malicious = run_experiment(total_nodes, bad_nodes, bft_threshold, committe_size)
-    if malicious == True:
-        M += 1
-    probabilities.append(float(M)/no_of_experiments)
+    probability = run_experiment(nodes, committe_size, bft_threshold, no_of_draws)
+    average_prob=((average_prob*i)+probability)/(i+1)
+    probabilities.append(probability)
+    convergence.append(average_prob)
 
 #Graph of no of experiments vs probability to see convergence (law of large numbers)
 
@@ -224,22 +227,42 @@ plt.ylim((-1, max(histogram_of_randomness[2])))
 plt.legend(loc='best')
 plt.show()
 
+## Standard graph settings 
+fig, ax1 = plt.subplots(figsize=(12,9))   
+ax1.grid(True, linestyle='-.')
+ax1.xaxis.grid(True, which='minor', linestyle='-.')
+
+ax1.set_xlabel('Index', fontsize='18')
+ax1.set_ylabel('Probabilities', fontsize='18')
+
+x = np.arange(0,len(convergence))
+y = convergence
+
+plt.plot(x, y)
+plt.legend(loc='best')
+plt.show()
+
+
 # Statistics for histogram of randomness 
 ## Mean 
-stat_mean = mean(histogram_of_randomness[2])
+stat_mean = mean(np.float64(histogram_of_randomness[2]))
 print('Mean:', stat_mean)
 
 ## Median 
-stat_median = median(histogram_of_randomness[2])
+stat_median = median(np.float64(histogram_of_randomness[2]))
 print('Median:', stat_median)
 
 ## Mode 
-stat_mode = mode(histogram_of_randomness[2])
-print('Mode', stat_mode)
+try:
+    stat_mode = mode(np.float64(histogram_of_randomness[2]))
+    print('Mode', stat_mode)
+except StatisticsError:
+    print("There is no mode!", stat_mode)
 
 ## Standard_deviation
-stat_stdev = stdev(histogram_of_randomness[2])
+stat_stdev = stdev(np.float64(histogram_of_randomness[2]))
 print('Standard deviation', stat_stdev)
+print("\n\n")
 
 # Get distribution_of_bad_nodes
 distribution_of_bad_nodes = []
@@ -250,6 +273,7 @@ for i in range(len(nodes)):
     else:
         distribution_of_good_nodes.append(nodes[i].NetworkPosition)
 print (distribution_of_bad_nodes)
+print("\n\n")
 
 # Distribution of Bad Nodes 
 ## Standard graph settings 
