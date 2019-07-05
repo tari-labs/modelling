@@ -129,7 +129,8 @@ nodes = create_network(total_nodes, "uniform_ditribution")
 nodes = assign_bad_nodes(nodes, bad_nodes, "uniform_ditribution")
 print ('\nnodes = assign_bad_nodes(nodes, bad_nodes, "uniform_ditribution")\n')
 for i in range(len(nodes)):
-    print ('Node %s, node ID %s, position_in_network %s, malicouos %s' % (nodes[i].index, nodes[i].node_id, nodes[i].position_in_network, nodes[i].malicious))
+    print ('Node %s, node ID %s, position_in_network %s, malicouos %s' \
+           % (nodes[i].index, nodes[i].node_id, nodes[i].position_in_network, nodes[i].malicious))
 print ('\n')
 #Experiment
 for k in range(N):
@@ -156,13 +157,13 @@ for k in range(N):
     if count >= bft_threshold: 
         M += 1
 
+#Probability of control
+print ('\nProbability %s\n' % (float(M)/N))
+
 #Get distribution_of_bad_nodes
 distribution_of_bad_nodes = [-1 for i in range(len(nodes))]
 for i in range(len(nodes)):
     distribution_of_bad_nodes[nodes[i].position_in_network] = nodes[i].malicious
-
-#Probability of control
-print ('\nProbability %s\n' % (float(M)/N))
 
 
 #print (histogram_of_randomness)
