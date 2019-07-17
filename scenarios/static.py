@@ -29,18 +29,18 @@ get_ipython().magic('clear')
 
 # Set number of nodes 
 
-no_of_nodes = 500
+no_of_nodes = 100
 
 # Declare and initialize variables for commitee size 
 
 committee_size = []
 
-committee_size_start = 10   
-committee_size_max = 500 
+committee_size_start = 1   
+committee_size_max = 100 
 
 ## Node increment 
 
-incr = 10                 
+incr = 1                 
 
 ## Create nodes array 
 
