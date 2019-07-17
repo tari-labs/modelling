@@ -11,10 +11,30 @@ import rand_dist as r_d
 import numpy as np
 
 class Network:
-    def __init__(self, radius = 1, maxRangeX = 2500, maxRangeY = 2500, qty = 100):
+    def __init__(self, rangeX, rangeY, qty, radius = 1):
+        #Runtime type checking
+        type_error = True
+        if type(rangeX) is list:
+            if len(rangeX) == 2:
+                if rangeX[0] < rangeX[1]:
+                    type_error = False
+        if type_error == False:
+            print("\nError! class Network: rangeX must be of type \'list\' size 2")
+            rangeX = [0, qty*10]
+            print("       Resetted \'rangeX\' to: %s\n" % (rangeX))
+        type_error = True
+        if type(rangeY) is list:
+            if len(rangeY) == 2:
+                if rangeY[0] < rangeY[1]:
+                    type_error = False
+        if type_error == False:
+            print("\nError! class Network: rangeY must be of type \'list\' size 2")
+            rangeY = [0, qty*10]
+            print("       Resetted \'rangeY\' to: %s\n" % (rangeY))
+        #Init
         self.radius = radius 
-        self.rangeX = (0, maxRangeX) 
-        self.rangeY = (0, maxRangeY) 
+        self.rangeX = rangeX
+        self.rangeY = rangeY
         self.qty = qty
         self.network_nodes = []
         for i in range(self.qty):
@@ -32,23 +52,24 @@ class Network:
         i = 0
         while i < self.qty:
             x = r_d.get_random_index(distribution_type, self.rangeX[0], self.rangeX[1])
-            y = r_d.get_random_index(distribution_type, self.rangeX[0], self.rangeY[1])
+            y = r_d.get_random_index(distribution_type, self.rangeY[0], self.rangeY[1])
             if (x,y) in excluded: continue 
             randPoints.append((x,y))
             i += 1
             excluded.update((x+dx, y+dy) for (dx,dy) in deltas)
         return randPoints
 
+    #Assign node characteristics
+    def assign_characteristics(self, distribution_type):
         #Assign coordinates
-    def assign_coordinates(self, distribution_type):
         randPoints = self.generate_coordinates(distribution_type)
         i = 0
         for _node in self.network_nodes:
             _node.updatePosition(randPoints[i])
             i += 1
+        #Assign node_id to the node
         self.vec = [-1 for i in range(self.qty)] #create an empty vector
         exit_condition = np.int64(0)
-        #Assign node_id to the node
         for i in range(len(self.network_nodes)): 
             while self.vec[i] < 0 and exit_condition < len(self.network_nodes) * 1000:
                 exit_condition += 1      
@@ -75,10 +96,11 @@ class node:
         self.NetworkPosition = nodePosition
 
 # Create the network 
-def create_network(total_nodes, distribution_type):
+def create_network(total_nodes, rangeX, rangeY, distribution_type):
     # Initialize basic network of nodes
-    _np = Network(qty = total_nodes)
-    _np.assign_coordinates(distribution_type)
+    _np = Network(rangeX, rangeY, qty = total_nodes)
+    #Assign node characteristics
+    _np.assign_characteristics(distribution_type)
     return _np.getNetworkNodes()
 
 # Assign random nodes as being bad 
