@@ -63,10 +63,11 @@ committe_size = int(input('How many nodes are to be drawn? '))
 bft_threshold = int(input('What is the BFT threshold within the committee? '))
 no_of_draws = int(input('What is the no of draws within an experiment? '))
 no_of_experiments = int(input('How many experiments? ')) 
+theoretical_mean = float(input('What is the theoretical mean?'))
 print("\n\n")
 
 histogram_of_randomness = np.int64(np.zeros((3, total_nodes)))
-nodes = n_s.create_network(total_nodes, "uniform_ditribution")
+nodes = n_s.create_network(total_nodes, [100,2500, 1], (100,2500), "uniform_ditribution")
 nodes = n_s.assign_bad_nodes(nodes, no_of_bad_nodes, "uniform_ditribution")
 
 #Run the experiments
@@ -94,7 +95,7 @@ if len(x) > 1:
     print("\n\n")
     print('Slope:', slope)
     print('Intercept:', intercept)
-    print('Regression Analysis:', r_value)
+    print('Standard Deviation"', stdev(np.float64(probabilities))) #a quantity expressing by how much the members of a group differ from the mean value for the group.
 
 #Debug info
 if debug == True:
@@ -108,10 +109,12 @@ plt.legend(loc='best')
 plt.show()
 
 # Plot convergence  
-plotSettings(title= "Convergence proving LLN ", x_label= 'Experiment No.', y_label= 'Average Probability')
+plotSettings(title= "Convergence proving LLN", x_label= 'Experiment No.', y_label= 'Average Probability')
 plt.plot(np.arange(0,len(convergence)), convergence, marker=".")
+plt.axhline(y=theoretical_mean, color='r', linestyle='-', label='Theoretical Mean')
 plt.legend(loc='best')
 plt.show()
+
 
 # Statistics for histogram of randomness 
 ## Mean 
