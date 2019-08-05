@@ -7,6 +7,7 @@ except ValueError:
     sys.path.append(os.getcwd().split(os.getcwd().split(os.sep)[-1])[0] + 'utils');
 
 import network_setup as n_s
+from rand_dist import *
 
 import numpy as np
 import matplotlib.pyplot as plt
@@ -22,7 +23,7 @@ def run_experiment(nodes, histogram, committe_size, bft_threshold, no_of_draws) 
     M = np.float64(0)
     for m in range(no_of_draws):
         # Create a new committee
-        committee = n_s.assign_committee(nodes, committe_size, "uniform_ditribution")
+        committee = n_s.assign_committee(nodes, committe_size, "hypergeometric-distribution")
         # Count number of times each node has been assigned to a committee
         for i in range(len(committee)):  
             j = committee[i].index
@@ -63,12 +64,14 @@ committe_size = int(input('How many nodes are to be drawn? '))
 bft_threshold = int(input('What is the BFT threshold within the committee? '))
 no_of_draws = int(input('What is the no of draws within an experiment? '))
 no_of_experiments = int(input('How many experiments? ')) 
-theoretical_mean = float(input('What is the theoretical mean?'))
+is_mean = input('Do you know theoratical mean? Y|N: ')
+if is_mean == 'Y':
+    theoretical_mean = float(input('What is the theoretical mean?'))
 print("\n\n")
 
 histogram_of_randomness = np.int64(np.zeros((3, total_nodes)))
-nodes = n_s.create_network(total_nodes, [100,2500, 1], (100,2500), "uniform_ditribution")
-nodes = n_s.assign_bad_nodes(nodes, no_of_bad_nodes, "uniform_ditribution")
+nodes = n_s.create_network(total_nodes, [100,2500, 1], (100,2500), "normal", no_of_bad_nodes, committe_size)
+nodes = n_s.assign_bad_nodes(nodes, no_of_bad_nodes, "hypergeometric_distribution")
 
 #Run the experiments
 probabilities = []
@@ -82,7 +85,7 @@ for i in range(no_of_experiments):
     convergence.append(average_prob)
     
 # Plot individual probabilities  
-plotSettings(title= "Each experiment's individual probability" ,x_label= 'Experiment No.', y_label= 'Probability')
+plotSettings(title= "Each Experiment's Individual Probability" ,x_label= 'Experiment No.', y_label= 'Probability')
 x = list(range(no_of_experiments))
 plt.plot(x, probabilities, marker=".")
 
@@ -108,14 +111,6 @@ plt.ylim((-1, max(histogram_of_randomness[2])))
 plt.legend(loc='best')
 plt.show()
 
-# Plot convergence  
-plotSettings(title= "Convergence proving LLN", x_label= 'Experiment No.', y_label= 'Average Probability')
-plt.plot(np.arange(0,len(convergence)), convergence, marker=".")
-plt.axhline(y=theoretical_mean, color='r', linestyle='-', label='Theoretical Mean')
-plt.legend(loc='best')
-plt.show()
-
-
 # Statistics for histogram of randomness 
 ## Mean 
 stat_mean = mean(np.float64(histogram_of_randomness[2]))
@@ -134,6 +129,14 @@ stat_stdev = stdev(np.float64(histogram_of_randomness[2]))
 print('Standard deviation', stat_stdev)
 print("\n\n")
 
+# Plot convergence  
+plotSettings(title= "Convergence Proving LLN", x_label= 'Experiment No.', y_label= 'Average Probability')
+plt.plot(np.arange(0,len(convergence)), convergence, marker=".")
+if is_mean == 'Y':
+    plt.axhline(y=theoretical_mean, color='r', linestyle='-', label='Theoretical Mean')
+plt.legend(loc='best')
+plt.show()
+
 # Get distribution_of_bad_nodes
 distribution_of_bad_nodes = []
 distribution_of_good_nodes = []
@@ -149,7 +152,7 @@ if debug == True:
     print("\n\n")
 
 # Plot position of nodes within network
-plotSettings(title= "Position of nodes within Network", x_label= 'X coordinate', y_label= 'Y coordinate')
+plotSettings(title= "Position of Nodes within Network", x_label= 'X coordinate', y_label= 'Y coordinate')
 plt.scatter(*zip(*distribution_of_good_nodes), color = 'blue', label = 'good')
 plt.scatter(*zip(*distribution_of_bad_nodes), color = 'red', label = 'bad')
 plt.legend(loc='best')

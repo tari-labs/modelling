@@ -6,12 +6,11 @@ try:
 except ValueError:
     sys.path.append(os.getcwd().split(os.getcwd().split(os.sep)[-1])[0] + 'utils');
 
-import rand_dist as r_d
-
+from rand_dist import *
 import numpy as np
 
 class Network:
-    def __init__(self, rangeX, rangeY, qty, radius = 1):
+    def __init__(self, rangeX, rangeY, qty, bad_nodes, committe_size, radius = 1):
         #Runtime type checking
         type_error = True
         if type(rangeX) is list:
@@ -36,6 +35,8 @@ class Network:
         self.rangeX = rangeX
         self.rangeY = rangeY
         self.qty = qty
+        self.bad_nodes = bad_nodes
+        self.committe_size = committe_size
         self.network_nodes = []
         for i in range(self.qty):
             self.network_nodes.append(node())
@@ -48,15 +49,11 @@ class Network:
                 if x*x + y*y <= self.radius*self.radius: 
                     deltas.add((x,y))
         randPoints = []
-        excluded = set()
-        i = 0
-        while i < self.qty:
-            x = r_d.get_random_index(distribution_type, self.rangeX[0], self.rangeX[1])
-            y = r_d.get_random_index(distribution_type, self.rangeY[0], self.rangeY[1])
-            if (x,y) in excluded: continue 
-            randPoints.append((x,y))
-            i += 1
-            excluded.update((x+dx, y+dy) for (dx,dy) in deltas)
+
+        x = get_random_distribution(distribution_type, self.rangeX[0], self.rangeX[1], self.qty, self.bad_nodes, self.committe_size)
+        y = get_random_distribution(distribution_type, self.rangeY[0], self.rangeY[1], self.qty, self.bad_nodes, self.committe_size)
+        for a,b in zip(x,y):
+            randPoints.append((a,b))
         return randPoints
 
     #Assign node characteristics
@@ -73,7 +70,7 @@ class Network:
         for i in range(len(self.network_nodes)): 
             while self.vec[i] < 0 and exit_condition < len(self.network_nodes) * 1000:
                 exit_condition += 1      
-                node_id = r_d.get_random_index(distribution_type, 1e6, 1e7)
+                node_id = get_random_index(distribution_type, 1e6, 1e7)
                 if self.vec.count(node_id) == 0: #If the number has not been repeated 
                     self.network_nodes[i].node_id = node_id
                     self.vec[i] = node_id
@@ -96,9 +93,9 @@ class node:
         self.NetworkPosition = nodePosition
 
 # Create the network 
-def create_network(total_nodes, rangeX, rangeY, distribution_type):
+def create_network(total_nodes, rangeX, rangeY, distribution_type, bad_nodes, committe_size):
     # Initialize basic network of nodes
-    _np = Network(rangeX, rangeY, qty = total_nodes)
+    _np = Network(rangeX, rangeY, total_nodes, bad_nodes, committe_size)
     #Assign node characteristics
     _np.assign_characteristics(distribution_type)
     return _np.getNetworkNodes()
@@ -115,7 +112,7 @@ def assign_bad_nodes(network_nodes, bad_nodes, distribution_type):
     count = 0
     while count < bad_nodes and exit_condition < len(network_nodes) * 1000:
         exit_condition += 1
-        index = r_d.get_random_index(distribution_type, 0, len(network_nodes)-1)
+        index = get_random_index(distribution_type, 0, len(network_nodes)-1)
         if network_nodes[index].malicious != True:
             network_nodes[index].malicious = True
             count += 1
@@ -134,7 +131,7 @@ def assign_committee(network_nodes, committee_size, distribution_type):
     while count < committee_size-1 and exit_condition < len(network_nodes) * 1000:
         exit_condition += 1
         # Draw node at random
-        node_index = r_d.get_random_index(distribution_type, 0, len(network_nodes)-1)
+        node_index = get_random_index(distribution_type, 0, len(network_nodes)-1)
         # Assign node if committee size = 0
         if len(committee) < 1:
             committee.append(network_nodes[node_index])
