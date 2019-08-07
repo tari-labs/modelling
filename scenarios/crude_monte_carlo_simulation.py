@@ -7,7 +7,6 @@ except ValueError:
     sys.path.append(os.getcwd().split(os.getcwd().split(os.sep)[-1])[0] + 'utils');
 
 import network_setup as n_s
-from rand_dist import *
 
 import numpy as np
 import matplotlib.pyplot as plt
