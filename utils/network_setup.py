@@ -6,7 +6,7 @@ try:
 except ValueError:
     sys.path.append(os.getcwd().split(os.getcwd().split(os.sep)[-1])[0] + 'utils');
 
-from rand_dist import r_d
+import rand_dist as r_d
 import numpy as np
 
 class Network:
@@ -50,8 +50,8 @@ class Network:
                     deltas.add((x,y))
         randPoints = []
 
-        x = r_d.get_random_distribution(distribution_type, self.rangeX[0], self.rangeX[1], self.qty, self.bad_nodes, self.committe_size)
-        y = r_d.get_random_distribution(distribution_type, self.rangeY[0], self.rangeY[1], self.qty, self.bad_nodes, self.committe_size)
+        x = r_d.get_random_distribution(distribution_type, self.rangeX[0], self.rangeX[1], self.qty, True, self.bad_nodes, self.committe_size)
+        y = r_d.get_random_distribution(distribution_type, self.rangeY[0], self.rangeY[1], self.qty, True, self.bad_nodes, self.committe_size)
         for a,b in zip(x,y):
             randPoints.append((a,b))
         return randPoints

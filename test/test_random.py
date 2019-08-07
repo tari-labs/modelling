@@ -33,9 +33,14 @@ lower_bound = 1
 upper_bound = 1000
 qty = 1000
 
+no_of_type_in_set = np.round(qty/3)
+sample_size = np.round(qty/7)
+
 y1_u = r_d.get_random_distribution("uniform_ditribution", lower_bound, upper_bound, qty, False)
 y1_n = r_d.get_random_distribution("normal", lower_bound, upper_bound, qty, False)
 y1_p = r_d.get_random_distribution("poisson", lower_bound, upper_bound, qty, False)
+y1_h = r_d.get_random_distribution("hypergeometric_distribution", lower_bound, upper_bound, qty, \
+                                   False, no_of_type_in_set, sample_size)
 
 y2_u = []
 y2_n = []
@@ -70,3 +75,6 @@ plotSettings(title= "poisson - get_random_index", x_label= 'Index', y_label= 'Va
 plt.scatter(np.arange(0,len(y2_p)), y2_p)
 plt.show()
 
+plotSettings(title= "hypergeometric - get_random_distribution", x_label= 'Index', y_label= 'Value')
+plt.scatter(np.arange(0,len(y1_h)), y1_h)
+plt.show()
