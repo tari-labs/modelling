@@ -31,7 +31,7 @@ def plotSettings(figure_size = (12,9), line_style_grid = '-.', line_style_axis =
 
 lower_bound = 1
 upper_bound = 1000
-qty = 1000
+qty = 10000
 
 no_of_type_in_set = np.round(qty/3)
 sample_size = np.round(qty/7)
@@ -78,3 +78,14 @@ plt.show()
 plotSettings(title= "hypergeometric - get_random_distribution", x_label= 'Index', y_label= 'Value')
 plt.scatter(np.arange(0,len(y1_h)), y1_h)
 plt.show()
+
+import numpy as np
+import seaborn as sns
+import matplotlib.pyplot as plt
+
+
+sns.distplot(y1_p);
+
+
+
+sns.distplot(y2_p);
