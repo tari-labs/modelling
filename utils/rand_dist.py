@@ -1,4 +1,5 @@
 import numpy as np
+import random
 
 # Create a random distribution
 def get_random_distribution(distribution_type, lower_bound, upper_bound, set_size, \
@@ -28,18 +29,11 @@ def get_random_distribution(distribution_type, lower_bound, upper_bound, set_siz
 
 # Create a random index
 def get_random_index(distribution_type, lower_bound, upper_bound, round = True):
-    if distribution_type == "uniform_ditribution" or distribution_type == "hypergeometric_distribution":
-        randomNums = np.random.uniform(lower_bound, upper_bound, size=1)
-        if round == True:
-            randomNums = np.round(randomNums)
+    index = np.int64(0)
+    if distribution_type == "uniform_ditribution":  #use global constant/enum for this?
+        index = random.randint(lower_bound, upper_bound)
     elif distribution_type == "normal":
-        randomNums = np.random.normal((int((lower_bound + upper_bound)/2)), size=1)
-        if round == True:
-            randomNums = np.round(randomNums)
-    elif distribution_type == "poisson":
-        randomNums = np.random.poisson((int((lower_bound + upper_bound)/2)), size=1)
-        if round == True:
-            randomNums = np.round(randomNums)
+        index = random.randint(lower_bound, upper_bound)  # ToDo: change to normal
     else:
-        print('Error! Undefined `distribution_type`: %s' % (distribution_type))
-    return randomNums
+        index = random.randint(lower_bound, upper_bound)  # ToDo: Add more options here
+    return index
