@@ -48,7 +48,7 @@ bad_actors_percentage = 0.6
 ## Percentage of Committee size
 
 committee_size = []
-committee_size_percentage = 0.25
+committee_size_percentage = 0.1
 
 ## BFT threshold percentage 
 

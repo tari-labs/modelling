@@ -154,7 +154,7 @@ plotSettings(title= "Convergence Proving LLN", x_label= 'Experiment No.', y_labe
 for distribution in distributions:
     plt.plot(np.arange(0,len(convergence_dict[distribution])), convergence_dict[distribution], linestyle='-', label = distribution)
 if is_mean == 'Y':
-    plt.axhline(y=theoretical_mean, color='r', linestyle='-', label='Theoretical Mean')
+    plt.axhline(y=theoretical_mean, color='b', linewidth=3, linestyle='-', label='Theoretical Mean')
 plt.legend(loc='best')
 plt.show()
 
