@@ -37,3 +37,4 @@ def get_random_index(distribution_type, lower_bound, upper_bound, round = True):
     else:
         index = random.randint(lower_bound, upper_bound)  # ToDo: Add more options here
     return index
+
