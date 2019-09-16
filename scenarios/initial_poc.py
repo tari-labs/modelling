@@ -27,7 +27,7 @@ get_ipython().magic('clear')
 
 no_of_nodes = []
 
-no_of_nodes_start = 1  
+no_of_nodes_start = 1
 no_of_nodes_max = 100 
 
 ## Node increment 
@@ -107,3 +107,4 @@ ax2.plot(x, y3, 'r-', label='Committee size')
 ax2.plot(x, y4, 'y-', label='BFT threshold')
 ax1.legend(fontsize='16', loc=3)
 ax2.legend(fontsize='16', loc=4)
+
