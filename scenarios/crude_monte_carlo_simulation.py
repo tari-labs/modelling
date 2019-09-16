@@ -180,3 +180,4 @@ for distribution in distributions:
     plt.scatter(*zip(*distribution_of_bad_nodes), color = 'red', label = 'bad')
     plt.legend(loc='best')
     plt.show()
+	
