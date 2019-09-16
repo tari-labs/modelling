@@ -152,3 +152,4 @@ def assign_committee(network_nodes, committee_size, distribution_type):
         committee = []
         print('Error! Duplicates nodes found in the proposed committee, committee not assigned.')
     return committee
+
