@@ -1,8 +1,4 @@
-#!/usr/bin/env python3
-# -*- coding: utf-8 -*-
 """
-Created on Tue Mar 26 11:42:37 2019
-
 Input: An example problem using a deck of cards will be used to demonstrate definition of the terms
 What is the probability of receiving 2 Kings from a deck of 52 playing cards (containing 4 Kings) 
 when 6 cards are drawn from the deck 
@@ -72,3 +68,4 @@ def probability(type_threshold, no_of_type_in_set, sample_size, set_size) -> np.
     for i in range(T, n + 1):
         P_tot = P_tot + nCk(m, i) * nCk(N - m, n - i) / nCk(N, n)
     return P_tot
+
