@@ -41,7 +41,8 @@ def run_experiment(nodes, histogram, committe_size, bft_threshold, no_of_draws) 
         probability = M/no_of_draws
     return probability, histogram
 
-def run_distribution(distribution_type, total_nodes, no_of_bad_nodes, histogram, committe_size, bft_threshold, no_of_draws, no_of_experiments):
+def run_distribution(distribution_type, total_nodes, no_of_bad_nodes, histogram, committe_size, bft_threshold, \
+                     no_of_draws, no_of_experiments):
     nodes = n_s.create_network(total_nodes, [100,2500, 1], (100,2500), distribution_type, no_of_bad_nodes, committe_size)
     nodes = n_s.assign_bad_nodes(nodes, no_of_bad_nodes, distribution_type)
     #Run the experiments
@@ -57,7 +58,8 @@ def run_distribution(distribution_type, total_nodes, no_of_bad_nodes, histogram,
     return convergence, probabilities, nodes
 
 def plotSettings(figure_size = (12,9), line_style_grid = '-.', \
-                 line_style_axis = '-.', title = " ", x_label = '', y_label = '',title_font_size = '20',font_size = '18', fontweight="bold"):
+                 line_style_axis = '-.', title = " ", x_label = '', y_label = '',title_font_size = '20', \
+                 font_size = '18', fontweight="bold"):
     ## Standard graph settings 
     fig, ax1 = plt.subplots(figsize=figure_size)   
     ax1.grid(True, linestyle=line_style_grid)
@@ -83,7 +85,8 @@ if is_mean == 'Y':
 print("\n\n")
 
 histogram_of_randomness = np.int64(np.zeros((3, total_nodes)))
-"""nodes = n_s.create_network(total_nodes, [100,2500, 1], (100,2500), "hypergeometric_distribution", no_of_bad_nodes, committe_size)
+"""nodes = n_s.create_network(total_nodes, [100,2500, 1], (100,2500), "hypergeometric_distribution", no_of_bad_nodes, \
+                              committe_size)
 nodes = n_s.assign_bad_nodes(nodes, no_of_bad_nodes, "hypergeometric_distribution")
 
 #Run the experiments
@@ -101,11 +104,14 @@ distributions = ['normal', 'uniform_ditribution', 'poisson', 'hypergeometric_dis
 convergence_dict = {}
 nodes_dict = {}
 for distribution in distributions:
-    convergence, probabilities, nodes = run_distribution(distribution, total_nodes, no_of_bad_nodes, histogram_of_randomness, committe_size, bft_threshold, no_of_draws, no_of_experiments)
+    convergence, probabilities, nodes = run_distribution(distribution, total_nodes, no_of_bad_nodes, \
+                                                         histogram_of_randomness, committe_size, bft_threshold, \
+                                                         no_of_draws, no_of_experiments)
     convergence_dict[distribution] = convergence
     nodes_dict[distribution] = nodes
 # Plot individual probabilities  
-    plotSettings(title= "Each Experiment's Individual Probability\n" + distribution ,x_label= 'Experiment No.', y_label= 'Probability')
+    plotSettings(title= "Each Experiment's Individual Probability\n" + distribution ,x_label= 'Experiment No.', 
+                 y_label= 'Probability')
     x = list(range(no_of_experiments))
     plt.plot(x, probabilities, marker=".")
 
@@ -152,7 +158,8 @@ print("\n\n")
 # Plot convergence  
 plotSettings(title= "Convergence Proving LLN", x_label= 'Experiment No.', y_label= 'Average Probability')
 for distribution in distributions:
-    plt.plot(np.arange(0,len(convergence_dict[distribution])), convergence_dict[distribution], linestyle='-', label = distribution)
+    plt.plot(np.arange(0,len(convergence_dict[distribution])), convergence_dict[distribution], linestyle='-', \
+             label = distribution)
 if is_mean == 'Y':
     plt.axhline(y=theoretical_mean, color='b', linewidth=3, linestyle='-', label='Theoretical Mean')
 plt.legend(loc='best')
@@ -165,9 +172,9 @@ for distribution in distributions:
     distribution_of_good_nodes = []
     for i in range(len(nodes_dict[distribution])):
         if nodes_dict[distribution][i].malicious:
-	        distribution_of_bad_nodes.append(nodes_dict[distribution][i].NetworkPosition)
+	        distribution_of_bad_nodes.append(nodes_dict[distribution][i].networkPosition)
         else:
-            distribution_of_good_nodes.append(nodes_dict[distribution][i].NetworkPosition)
+            distribution_of_good_nodes.append(nodes_dict[distribution][i].networkPosition)
 
 #Debug info
     if debug == True:
@@ -175,7 +182,8 @@ for distribution in distributions:
         print("\n\n")
 
 # Plot position of nodes within network
-    plotSettings(title= "Position of Nodes within Network\n" + distribution, x_label= 'X coordinate', y_label= 'Y coordinate')
+    plotSettings(title= "Position of Nodes within Network\n" + distribution, x_label= 'X coordinate', \
+                 y_label= 'Y coordinate')
     plt.scatter(*zip(*distribution_of_good_nodes), color = 'blue', label = 'good')
     plt.scatter(*zip(*distribution_of_bad_nodes), color = 'red', label = 'bad')
     plt.legend(loc='best')

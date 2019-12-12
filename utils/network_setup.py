@@ -9,7 +9,7 @@ except ValueError:
 import rand_dist as r_d
 import numpy as np
 
-class Network:
+class network:
     def __init__(self, rangeX, rangeY, qty, bad_nodes, committe_size, radius = 1):
         #Runtime type checking
         type_error = True
@@ -86,16 +86,23 @@ class node:
     malicious = False
     node_id = -1
     index = -1
+    msg = ""
+    contacted = False
+    peers = []
     def __init__(self, networkPosition = (0, 0)):
-        self.NetworkPosition = networkPosition
+        self.networkPosition = networkPosition
     
     def updatePosition(self, nodePosition):
-        self.NetworkPosition = nodePosition
+        self.networkPosition = nodePosition
+    def __str__(self):
+        return "member of Test " + str(self.node_id)
+    def __repr__(self):
+        return "member of Test repl" + str(self.node_id)
 
 # Create the network 
 def create_network(total_nodes, rangeX, rangeY, distribution_type, bad_nodes, committe_size):
     # Initialize basic network of nodes
-    _np = Network(rangeX, rangeY, total_nodes, bad_nodes, committe_size)
+    _np = network(rangeX, rangeY, total_nodes, bad_nodes, committe_size)
     #Assign node characteristics
     _np.assign_characteristics(distribution_type)
     return _np.getNetworkNodes()
