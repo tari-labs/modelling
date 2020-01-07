@@ -3,7 +3,14 @@ import random
 import matplotlib.pyplot as plt
 import numpy as np
 import heapq
+import os
 
+#%%
+#------------------------------------
+#----------- Functions --------------
+#------------------------------------
+
+#%% Get indexes for n maximum values
 def get_indexes_max_n_values(my_list, count):
     max_values = heapq.nlargest(count, my_list)
     max_values = list(set(max_values)) #Use unique values only
@@ -14,86 +21,193 @@ def get_indexes_max_n_values(my_list, count):
                 indexes.append(j)
     return indexes
 
-def limit_down(num, value):
-    if num < value:
-        return value
+#%% Limit number down to minimum value
+def limit_down(num, min_value):
+    if num < min_value:
+        return min_value
     else:
         return num
 
+#%% Limit number to between minimum and maximum values
+def limit_up_down(num, min_value, max_value):
+    if num > max_value:
+        return max_value
+    elif num < min_value:
+        return min_value
+    else:
+        return num
+
+#%% Input helper - returns default (typed) value upon no input
+def get_input(my_text, default, my_type=None):
+    if default != '':
+        my_text = my_text + '[' + str(default) + ']: '
+    else:
+        my_text = my_text + '[?]: '
+    the_input = input(my_text)
+    if the_input == '' and default != None:
+        the_input = default
+    if my_type == 'int':
+        the_input = int(the_input)
+    elif my_type == 'float':
+        the_input = float(the_input)
+    else:
+        the_input = str(the_input)
+    return the_input
+
+#%%
+#------------------------------------
+#----------- Classes ----------------
+#------------------------------------
+
+#%% Simple counter
 class COUNTER:
     def __init__(self, initial_value=0, increment=1):
         self.new = initial_value
         self.old = initial_value
         self.initial_value = initial_value
         self.increment = increment
-        
-    def reset(self):
-        self.new = self.initial_value
-        self.old = self.initial_value
-        
+
+    def reset(self, initial_value=0):
+        self.new = initial_value
+        self.old = initial_value
+
     def incr(self):
         self.old = self.new
         self.new += self.increment
         return self.old
 
-#Linear Weighted Moving Average - Basic
+    def val(self):
+        return self.old
+
+#%% Linear Weighted Moving Average - Basic
 class DIFFICULTY_LWMA_00:
     def __init__(self, difficulty_window):
         self.difficulty_window = difficulty_window
-    
-    def adjust_difficulty(self, difficulties, solve_times, target_time):
-        n = self.difficulty_window if len(difficulties) > self.difficulty_window else len(difficulties)
+
+    def adjust_difficulty(self, difficulties, acc_difficulties, solve_times, target_time):
+        n = self.difficulty_window if len(solve_times) > self.difficulty_window else len(solve_times)
         avg_diff = mean(difficulties[len(difficulties)-n:])
         _sum = 0
         denom = 0
-        n = self.difficulty_window if len(solve_times) > self.difficulty_window else len(solve_times)
         for i in range(len(solve_times)-n, len(solve_times)):
             _sum += (solve_times[i] * (i+1))
             denom += (i+1)
         return avg_diff * (target_time/(_sum/denom))
 
-
-#Linear Weighted Moving Average - Bitcoin & Zcash Clones 
-#(https://github.com/zawy12/difficulty-algorithms/issues/3)
-class DIFFICULTY_LWMA_01:
+#%% #Linear Weighted Moving Average - Bitcoin & Zcash Clones - 2017-12-06
+#(https://github.com/zawy12/difficulty-algorithms/issues/3#issue-279773112)
+class DIFFICULTY_LWMA_01_20171206:
     def __init__(self, difficulty_window):
         self.difficulty_window = difficulty_window
-    
-    def adjust_difficulty(self, difficulties, solve_times, target_time):
-        N = self.difficulty_window if len(difficulties) > self.difficulty_window else len(difficulties)
+
+    def adjust_difficulty(self, difficulties, acc_difficulties, solve_times, target_time):
+        N = self.difficulty_window if len(solve_times) > self.difficulty_window else len(solve_times)
         L = 0
         T = target_time
-        for i in range(len(solve_times)-N, len(solve_times)):
-            L += (i - len(solve_times)-N + 1) * min(6*T, solve_times[i])
+        for i in range(1, N+1):
+            j = len(solve_times)-N + (i - 1) #only the last portion of the list must be indexed
+            L += i * min(6*T, solve_times[j])
         if L < N*N*T/20:
             L =  N*N*T/20
         if N > 1:
-            avg_D = limit_down((difficulties[len(difficulties)-1] - difficulties[len(difficulties)-N] )/ N, difficulties[0])
-            #avg_D = mean(difficulties[len(difficulties)-N:])
+            avg_D = limit_down((acc_difficulties[len(acc_difficulties)-1] - acc_difficulties[len(acc_difficulties)-N]) / N, \
+                               acc_difficulties[0])
         else:
-            avg_D = difficulties[0]
-        if avg_D > 2000000*N*N*T:
-            next_D = (avg_D/(200*L))*(N*(N+1)*T*99)
-        else:
-            next_D = (avg_D*N*(N+1)*T*99)/(200*L)
-        print('N=', N, '  L=', L, '  avg_D=', avg_D, '  next_D=', next_D)
+            avg_D = acc_difficulties[0]
+        next_D = (avg_D/(200*L))*(N*(N+1)*T*99) #The original algo uses an if statement here that resolves to the same answer
         return  next_D
 
-#Block time based on ratio between target difficulty and available hash rate
+#%% #Linear Weighted Moving Average - Bitcoin & Zcash Clones - 2018-11-27
+#(https://github.com/zawy12/difficulty-algorithms/issues/3#issuecomment-442129791)
+#(https://github.com/tari-project/tari/blob/development/base_layer/core/src/proof_of_work/lwma_diff.rs)
+class DIFFICULTY_LWMA_01_20181127:
+    def __init__(self, difficulty_window):
+        self.difficulty_window = difficulty_window
+
+    def adjust_difficulty(self, difficulties, acc_difficulties, solve_times, target_time):
+        n = self.difficulty_window if len(solve_times) > self.difficulty_window else len(solve_times)
+        k = np.int64(n * (n + 1) * target_time / 2)
+        weighted_times = np.int64(0)
+        j = np.int64(0)
+        for i in range(len(solve_times)-n, len(solve_times)):
+            solve_time = np.int64(min(6*target_time, solve_times[i]))
+            j += 1
+            weighted_times += solve_time * j
+        if n > 1:
+            ave_difficulty = limit_down((acc_difficulties[len(acc_difficulties)-1] -
+                                         acc_difficulties[len(acc_difficulties)-n]) / n, acc_difficulties[0])
+        else:
+            ave_difficulty = acc_difficulties[0]
+        target = ave_difficulty * k / weighted_times
+        return  target
+
+#%% Block time based on ratio between target difficulty and available hash rate
 class MINE_BLOCK:
-    def __init__(self, randomness, noAlgos):
-        randomness = min(abs(randomness), 0.9)
-        self.rand_down = (1-randomness)
-        self.rand_up = (1+randomness)
+    def __init__(self, randomness_miner, randomness_hash_rate, noAlgos, dist):
+        self.randomness_miner = limit_up_down(randomness_miner, 0, 0.9)
+        self.rand_down_m = (1-self.randomness_miner)
+        self.rand_up_m = (1+self.randomness_miner)
+        self.randomness_hash_rate = limit_up_down(randomness_hash_rate, 0, 0.9)
+        self.rand_down_hr = (1-self.randomness_hash_rate)
+        self.rand_up_hr = (1+self.randomness_hash_rate)
         self.noAlgos = noAlgos
+        if self.randomness_miner > 0 or self.randomness_hash_rate > 0:
+            if dist == 'normal': #'uniform' or 'normal' or 'poisson'
+                self.dist = 'normal'
+                print(' ----- Randomness => normal distribution -----\n')
+            elif dist == 'poisson':
+                self.dist = 'poisson'
+                print(' ----- Randomness => poisson distribution -----\n')
+            elif dist == 'uniform':
+                self.dist = 'uniform'
+                print(' ----- Randomness => uniform distribution -----\n')
+            else:
+                self.dist = ''
+                print(' ----- Randomness => none -----\n')
+        else:
+            self.dist = ''
+            print(' ----- Randomness => none -----\n')
+        self.count = COUNTER(initial_value=0, increment=1)
+
+    def get_hash_rate(self, hash_rate):
+        if self.randomness_hash_rate > 0:
+            if self.dist == 'normal':
+                hash_rate = np.random.normal(hash_rate, hash_rate*self.randomness_hash_rate, 1)
+            elif self.dist == 'poisson':
+                hash_rate = np.random.poisson(hash_rate, 1)
+            elif self.dist == 'uniform':
+                hash_rate = np.random.uniform(hash_rate*self.rand_down_hr, hash_rate*self.rand_up_hr)
+        return hash_rate
 
     def calc_block_hash(self, difficulty, hash_rate, gradient, intercept):
-        gradient_ = random.uniform(gradient*self.rand_down, gradient*self.rand_up)
-        intercept_ = random.uniform(intercept*self.rand_down, intercept*self.rand_up)
-        block_time = limit_down((difficulty/hash_rate) * gradient_ + intercept_, 1)
-        achieved_difficulty = difficulty + abs(difficulty - ((block_time - intercept) / gradient) * hash_rate)
+        self.count.reset()
+        while self.count.incr() <= 10:
+            if self.randomness_miner > 0:
+                if self.dist == 'normal':
+                    gradient_r = np.random.normal(gradient*self.rand_down_m, gradient*self.randomness_miner, 1)
+                    intercept_r = np.random.normal(intercept*self.rand_down_m, intercept*self.randomness_miner, 1)
+                elif self.dist == 'poisson':
+                    gradient_r = np.random.poisson(gradient, 1)
+                    intercept_r = np.random.poisson(intercept, 1)
+                elif self.dist == 'uniform':
+                    gradient_r = np.random.uniform(gradient*self.rand_down_m, gradient)
+                    intercept_r = np.random.uniform(intercept*self.rand_down_m, intercept)
+                else:
+                    gradient_r = gradient
+                    intercept_r = intercept
+            else:
+                gradient_r = gradient
+                intercept_r = intercept
+            block_time = limit_down((difficulty/hash_rate) * gradient_r + intercept_r, 1)
+            achieved_difficulty = difficulty + (difficulty - ((block_time - intercept) / gradient) * hash_rate) #abs(difficulty - ((block_time - intercept) / gradient) * hash_rate)
+            if achieved_difficulty >= difficulty:
+                break
+        else:
+            achieved_difficulty = difficulty
+            block_time = limit_down((difficulty/hash_rate) * gradient + intercept, 1)
         return block_time, achieved_difficulty
 
+#%% Basic block
 class BLOCK:
     def __init__(self, block_number, algo, achieved_difficulty, accumulated_difficulty, block_time, hash_rate):
         self.block_number = int(block_number)
@@ -102,10 +216,10 @@ class BLOCK:
         self.accumulated_difficulty = float(accumulated_difficulty)
         self.block_time = float(block_time)
         self.hash_rate = hash_rate
-        
-#Blockchain
+
+#%% Blockchain
 class BLOCKCHAIN:
-    def __init__(self, selfish_mining, noAlgos, initial_difficulties, initial_block_time, initial_hash_rates):
+    def __init__(self, selfish_mining, noAlgos, initial_difficulties, initial_block_time, initial_hash_rates, use_geometric_mean):
         self.selfish_mining = selfish_mining
         self.noAlgos = noAlgos
         self.chain = []
@@ -114,6 +228,7 @@ class BLOCKCHAIN:
         self.accumulated_difficulties = [[] for i in range(self.noAlgos)]
         self.block_times = [[] for i in range(self.noAlgos)]
         self.hash_rates = [[] for i in range(self.noAlgos)]
+        self.use_geometric_mean = use_geometric_mean
         for i in range(self.noAlgos):
             self.target_difficulties[i].append(initial_difficulties[i])
             self.achieved_difficulties[i].append(initial_difficulties[i])
@@ -199,10 +314,12 @@ class BLOCKCHAIN:
             print('')
         #Debug ˄˄˄˄˄˄˄˄˄˄˄˄˄˄
         #Select algorithm with highest accumulated difficulty
-        if init==True:
-            algo = geometric_mean.index(max(geometric_mean)) # algo = len(self.chain) % self.noAlgos
-        else:
+        # - This can be used to initialize the difficulty algorithms during init to choose alternate algos
+        #     algo = len(self.chain) % self.noAlgos
+        if self.use_geometric_mean == True:
             algo = geometric_mean.index(max(geometric_mean))
+        else:
+            algo = block_times.index(min(block_times))
         #Add new block to the blockchain
         self.chain.append(BLOCK(len(self.chain), algo, achieved_difficulties[algo], geometric_mean[algo], \
                            block_times[algo], hash_rates[algo]))
@@ -210,7 +327,7 @@ class BLOCKCHAIN:
         self.target_difficulties[algo].append(target_difficulties[algo])
         self.achieved_difficulties[algo].append(achieved_difficulties[algo])
         accumulated_difficulty = self.accumulated_difficulties[algo][len(self.accumulated_difficulties[algo])-1] + \
-                        achieved_difficulties[algo]
+            achieved_difficulties[algo]
         self.accumulated_difficulties[algo].append(accumulated_difficulty)
         self.block_times[algo].append(block_times[algo])
         self.hash_rates[algo].append(hash_rates[algo])
@@ -218,7 +335,12 @@ class BLOCKCHAIN:
     def reorg():
         return
 
+#%%
+#------------------------------------
+#----------- Main Program -----------
+#------------------------------------
 
+#%%
 #Constants
 c = COUNTER(initial_value=0, increment=1)
 _NAM = c.incr() #Name
@@ -237,13 +359,47 @@ algos.append(['Algo 4', 298.25, 0.7018, 1000000, 1000])
 algos.append(['Algo 5', 597.99, 0.4020, 10000000, 10000])
 algos = list(map(list, zip(*algos))) #data into row-column format
 
+#%%
+#Read inputs from config file
+blocksToSolve = noAlgos = diff_algo = targetBT = difficulty_window = mining_randomness = hash_rate_randomness = blocksToSolve = ''
+config_file = os.getcwd() + os.path.sep + "my_inputs.txt"
+config_file_start_id = ">>>> Gtd$K46U%JN*X#Vd >>>>"
+config_file_end_id = "<<<< Gtd$K46U%JN*X#Vd <<<<"
+if os.path.isfile(config_file):
+    with open(config_file,"r") as f:
+        fl = f.readlines()
+        c.reset()
+        if fl[c.incr()].strip() == config_file_start_id.strip() and fl[len(fl)-1].strip() == config_file_end_id.strip():
+            blocksToSolve = int(fl[c.incr()].strip())
+            noAlgos = int(fl[c.incr()].strip())
+            diff_algo = int(fl[c.incr()].strip())
+            targetBT = int(fl[c.incr()].strip())
+            difficulty_window = int(fl[c.incr()].strip())
+            mining_randomness = float(fl[c.incr()].strip())
+            hash_rate_randomness = float(fl[c.incr()].strip())
 
-blocksToSolve =       int(input('Enter number of blocks to solve after initial period: '))
-noAlgos =         min(int(input('Enter the number of mining algorithms (1-5):          ')), len(algos))
-targetBT =            int(input('Enter the system target block time:                   '))
-difficulty_window =   int(input('Enter the difficulty algo window:                     '))
-mining_randomness = float(input('Enter the mining randomness factor (0-0.9):           '))
+#Get new iputs
+blocksToSolve =           limit_down(get_input('Enter number of blocks to solve after initial period   ', default=blocksToSolve, my_type='int'), 0)
+noAlgos =              limit_up_down(get_input('Enter the number of mining algorithms (1-%s)            ' % (len(algos)), default=noAlgos, my_type='int'), 1, len(algos))
+diff_algo =            limit_up_down(get_input('Diff algo: LWMA(0), LWMA-1_171206(1), LWMA-1_181127(2) ', default=diff_algo, my_type='int',), 0, 2)
+targetBT =                limit_down(get_input('Enter the system target block time (>=10)              ', default=targetBT, my_type='int'), 10)
+difficulty_window =       limit_down(get_input('Enter the difficulty algo window (>=1)                 ', default=difficulty_window, my_type='int',), 1)
+mining_randomness =    limit_up_down(get_input('Enter the mining randomness factor (0-0.9)             ', default=mining_randomness, my_type='float',), 0, 0.9)
+hash_rate_randomness = limit_up_down(get_input('Enter the hash rate randomness factor (0-0.9)          ', default=hash_rate_randomness, my_type='float',), 0, 0.9)
 
+#Write new inputs to config file
+with open(config_file,"w+") as f:
+    f.write(config_file_start_id + "\n")
+    f.write(str(blocksToSolve) + "\n")
+    f.write(str(noAlgos) + "\n")
+    f.write(str(diff_algo) + "\n")
+    f.write(str(targetBT) + "\n")
+    f.write(str(difficulty_window) + "\n")
+    f.write(str(mining_randomness) + "\n")
+    f.write(str(hash_rate_randomness) + "\n")
+    f.write(config_file_end_id)
+
+#%%
 #Assign initial fixed data to algorithms
 data = []
 data.append(algos[_NAM][0:noAlgos]) #_NAM
@@ -254,16 +410,29 @@ data.append(algos[_DF0][0:noAlgos]) #_DF0
 data.append([targetBT for i in range(noAlgos)]) #_BT0
 
 #Intialize data
-diff_algo = DIFFICULTY_LWMA_00(difficulty_window=difficulty_window)
-miner = MINE_BLOCK(randomness=mining_randomness, noAlgos=noAlgos)
+c.reset()
+if diff_algo == c.incr():
+    diff_algo = DIFFICULTY_LWMA_00(difficulty_window=difficulty_window)
+    print('\n\n ----- Using difficulty algorithm: LWMA Basic -----\n')
+elif diff_algo == c.incr():
+    diff_algo = DIFFICULTY_LWMA_01_20171206(difficulty_window=difficulty_window)
+    print('\n\n ----- Using difficulty algorithm: LWMA-1 version 2017-12-06 -----\n')
+elif diff_algo == c.incr():
+    diff_algo = DIFFICULTY_LWMA_01_20181127(difficulty_window=difficulty_window)
+    print('\n\n ----- Using difficulty algorithm: LWMA-1 version 2018-11-27 -----\n')
+else:
+    diff_algo = DIFFICULTY_LWMA_00(difficulty_window=difficulty_window)
+    print('\n\n ----- Using difficulty algorithm: LWMA Basic -----\n')
+miner = MINE_BLOCK(randomness_miner=mining_randomness, randomness_hash_rate=hash_rate_randomness, noAlgos=noAlgos, dist='poisson')
 chain = BLOCKCHAIN(selfish_mining=False, noAlgos=noAlgos, initial_difficulties=data[_DF0], initial_block_time=1, \
-                   initial_hash_rates=data[_HR0])
+                   initial_hash_rates=data[_HR0], use_geometric_mean=True)
 
 #For debugging
 diff_algo_vars = vars(diff_algo)
 miner_vars = vars(miner)
 chain_vars = vars(chain)
 
+#%%
 #Initial: Adjusting difficulty to achieve target block time
 settling_window = int(abs(diff_algo.difficulty_window*1.5*noAlgos))
 target_difficulties = [[] for i in range(noAlgos)]
@@ -273,30 +442,34 @@ hash_rates = [[] for i in range(noAlgos)]
 for i in range(1, settling_window): #0th elements are the initial values
     for j in range(0, noAlgos):
         #Difficulty adjustment
-        target_difficulties[j] = diff_algo.adjust_difficulty(chain.achieved_difficulties[j], chain.block_times[j], data[_BT0][j])
+        target_difficulties[j] = diff_algo.adjust_difficulty(chain.achieved_difficulties[j], chain.accumulated_difficulties[j], \
+                                                             chain.block_times[j], data[_BT0][j])
         #Available hash rate
-        hash_rates[j] = chain.hash_rates[j][len(chain.hash_rates[j])-1] #Hash rate stays constant during initial phase
+        hash_rates[j] = miner.get_hash_rate(chain.hash_rates[j][0]) #Hash rate stays constant during initial phase
         #Mine block
-        block_times[j], achieved_difficulty[j] = miner.calc_block_hash(target_difficulties[j], hash_rates[j], data[_GRA][j], data[_INT][j])
-    #Derermine and add winning block to the blockchain
+        block_times[j], achieved_difficulty[j] = miner.calc_block_hash(target_difficulties[j], hash_rates[j], data[_GRA][j], \
+                                                                       data[_INT][j])
+    #Determine and add winning block to the blockchain
     chain.add_block(block_times, target_difficulties, achieved_difficulty, hash_rates, init=True)
 
 #Scenario starts here
 for i in range(settling_window, settling_window+blocksToSolve): #0th elements are the initial values
     for j in range(0, noAlgos):
         #Difficulty adjustment
-        target_difficulties[j] = diff_algo.adjust_difficulty(chain.achieved_difficulties[j], chain.block_times[j], data[_BT0][j])
+        target_difficulties[j] = diff_algo.adjust_difficulty(chain.achieved_difficulties[j], chain.accumulated_difficulties[j], \
+                                                             chain.block_times[j], data[_BT0][j])
         #Game theory adjusting hash rate
         if i > settling_window + blocksToSolve/(noAlgos*2) and i < settling_window + blocksToSolve/(noAlgos) and j == 0:
-            hash_rates[j] = chain.hash_rates[j][0]*2
+            hash_rates[j] = miner.get_hash_rate(chain.hash_rates[j][0]*2)
         else:
-            hash_rates[j] = chain.hash_rates[j][0] #Hash rate stays constant during initial phase
+            hash_rates[j] = miner.get_hash_rate(chain.hash_rates[j][0]) #Hash rate stays constant during initial phase
         #Mine block
-        block_times[j], achieved_difficulty[j] = miner.calc_block_hash(target_difficulties[j], hash_rates[j], data[_GRA][j], data[_INT][j])
+        block_times[j], achieved_difficulty[j] = miner.calc_block_hash(target_difficulties[j], hash_rates[j], data[_GRA][j], \
+                                                                       data[_INT][j])
     #Derermine and add winning block to the blockchain
     chain.add_block(block_times, target_difficulties, achieved_difficulty, hash_rates)
 
-       
+#%%
 #Plot results
 fig1, axs1 = plt.subplots(noAlgos, 3, figsize=(15, noAlgos*5))
 fig1.subplots_adjust(hspace=0.3, wspace=0.3)
@@ -346,11 +519,11 @@ axs2[0, 1].grid()
 
 y, repeats = chain.get_algo()
 x = np.arange(1, len(y) + 1)
-axs2[1, 0].plot(x, y, marker='*', ls='')
+axs2[1, 0].plot(x, y, marker='.', ls='')
 axs2[1, 0].set_title('Blockchain: Algo')
 axs2[1, 0].grid()
-   
-axs2[1, 1].plot(repeats[0], repeats[2], marker='*', ls='')
+
+axs2[1, 1].plot(repeats[0], repeats[2], marker='.', ls='')
 axs2[1, 1].set_title('Blockchain: Repeats')
 axs2[1, 1].grid()
 y_max = get_indexes_max_n_values(repeats[2], count=5)
@@ -358,5 +531,5 @@ for i in range(0, len(y_max)):
     axs2[1, 1].text(repeats[0][y_max[i]] - repeats[0][len(repeats[0])-1]/20, \
         repeats[2][y_max[i]] - max(repeats[2])/15, \
         r'(' + str(data[0][repeats[1][y_max[i]]]) + ')')
- 
+
 plt.show()
