@@ -2,6 +2,7 @@ import matplotlib.pyplot as plt
 import numpy as np
 import heapq
 import os
+import copy
 
 #%% Functions header
 #------------------------------------
@@ -133,7 +134,7 @@ class DIFFICULTY_LWMA_01_20181127:
 
 #%% Block time based on ratio between target difficulty and available hash rate
 class MINE_BLOCK:
-    def __init__(self, randomness_miner, randomness_hash_rate, noAlgos, dist):
+    def __init__(self, randomness_miner, randomness_hash_rate, noAlgos, initial_hash_rates, dist):
         self.randomness_miner = limit_up_down(randomness_miner, 0, 0.9)
         self.rand_down_m = (1-self.randomness_miner)
         self.rand_up_m = (1+self.randomness_miner)
@@ -141,6 +142,7 @@ class MINE_BLOCK:
         self.rand_down_hr = (1-self.randomness_hash_rate)
         self.rand_up_hr = (1+self.randomness_hash_rate)
         self.noAlgos = noAlgos
+        self.initial_hash_rates = initial_hash_rates
         if self.randomness_miner > 0 or self.randomness_hash_rate > 0:
             if dist == 'normal': #'uniform' or 'normal' or 'poisson'
                 self.dist = 'normal'
@@ -159,14 +161,15 @@ class MINE_BLOCK:
             print(' ----- Randomness => none -----\n')
         self.count = COUNTER(initial_value=0, increment=1)
 
-    def get_hash_rate(self, hash_rate):
+    def get_hash_rate(self, hash_rate, algo):
         if self.randomness_hash_rate > 0:
+            min_value = self.initial_hash_rates[algo]/10
             if self.dist == 'normal':
-                hash_rate = np.random.normal(hash_rate, hash_rate*self.randomness_hash_rate, 1)
+                hash_rate = limit_down(np.random.normal(hash_rate, hash_rate*self.randomness_hash_rate, 1), min_value)
             elif self.dist == 'poisson':
-                hash_rate = np.random.poisson(hash_rate, 1)
+                hash_rate = limit_down(np.random.poisson(hash_rate, 1), min_value)
             elif self.dist == 'uniform':
-                hash_rate = np.random.uniform(hash_rate*self.rand_down_hr, hash_rate*self.rand_up_hr)
+                hash_rate = limit_down(np.random.uniform(hash_rate*self.rand_down_hr, hash_rate*self.rand_up_hr), min_value)
         return hash_rate
 
     def calc_block_hash(self, difficulty, hash_rate, gradient, intercept):
@@ -209,7 +212,8 @@ class BLOCK:
 
 #%% Blockchain
 class BLOCKCHAIN:
-    def __init__(self, selfish_mining, noAlgos, initial_difficulties, initial_block_time, initial_hash_rates, use_geometric_mean):
+    def __init__(self, selfish_mining, noAlgos, initial_difficulties, initial_block_time, initial_hash_rates, \
+                 reorg_ignore_factor, use_geometric_mean):
         self.selfish_mining = selfish_mining
         self.noAlgos = noAlgos
         self.chain = []
@@ -219,6 +223,7 @@ class BLOCKCHAIN:
         self.block_times = [[] for i in range(self.noAlgos)]
         self.hash_rates = [[] for i in range(self.noAlgos)]
         self.use_geometric_mean = use_geometric_mean
+        self.reorg_ignore_factor = reorg_ignore_factor
         for i in range(self.noAlgos):
             self.target_difficulties[i].append(initial_difficulties[i])
             self.achieved_difficulties[i].append(initial_difficulties[i])
@@ -306,16 +311,27 @@ class BLOCKCHAIN:
             print(geometric_mean, ' ', geometric_mean.index(max(geometric_mean)))
             print('')
         #Debug ˄˄˄˄˄˄˄˄˄˄˄˄˄˄
-        #Select algorithm with highest accumulated difficulty
+        #Select algorithm with highest accumulated difficulty limted by difference in solve times
         # - This can be used to initialize the difficulty algorithms during init to choose alternate algos
         #     algo = len(self.chain) % self.noAlgos
         if self.use_geometric_mean == True:
-            algo = geometric_mean.index(max(geometric_mean))
+            gm = [[i for i in range(0, len(geometric_mean))], copy.deepcopy(geometric_mean)]
+            bt = copy.deepcopy(block_times)
+            while max(bt) > self.reorg_ignore_factor * min(bt):
+                t1 = bt.index(max(bt))
+                bt.pop(t1)
+                gm[0].pop(t1)
+                gm[1].pop(t1)
+            if len(block_times) == len(bt):
+                algo = geometric_mean.index(max(geometric_mean))
+            else:
+                algo = gm[0][gm[1].index(max(gm[1]))]
+                #print(block_times, bt, geometric_mean.index(max(geometric_mean)), 'vs', algo, '  at ', len(self.chain))
         else:
             algo = block_times.index(min(block_times))
         #Add new block to the blockchain
         self.chain.append(BLOCK(len(self.chain), algo, achieved_difficulties[algo], geometric_mean[algo], \
-                           block_times[algo], hash_rates[algo]))
+                           block_times[algo]/self.noAlgos, hash_rates[algo]))
         #Update blockchain stats
         self.target_difficulties[algo].append(target_difficulties[algo])
         self.achieved_difficulties[algo].append(achieved_difficulties[algo])
@@ -354,7 +370,7 @@ algos = list(map(list, zip(*algos))) #data into row-column format
 
 #%% User inputs
 #Read inputs from config file
-blocksToSolve = noAlgos = diff_algo = targetBT = difficulty_window = mining_randomness = hash_rate_randomness = blocksToSolve = ''
+blocksToSolve = noAlgos = diff_algo = targetBT = difficulty_window = mining_randomness = hash_rate_randomness = ignore_factor = ''
 config_file = os.getcwd() + os.path.sep + "my_inputs.txt"
 config_file_start_id = ">>>> Gtd$K46U%JN*X#Vd >>>>"
 config_file_end_id = "<<<< Gtd$K46U%JN*X#Vd <<<<"
@@ -370,6 +386,7 @@ if os.path.isfile(config_file):
             difficulty_window = int(fl[c.incr()].strip())
             mining_randomness = float(fl[c.incr()].strip())
             hash_rate_randomness = float(fl[c.incr()].strip())
+            reorg_ignore_factor = float(fl[c.incr()].strip())
 
 #Get new iputs
 blocksToSolve =           limit_down(get_input('Enter number of blocks to solve after initial period   ', default=blocksToSolve, my_type='int'), 0)
@@ -379,6 +396,7 @@ targetBT =                limit_down(get_input('Enter the system target block ti
 difficulty_window =       limit_down(get_input('Enter the difficulty algo window (>=1)                 ', default=difficulty_window, my_type='int',), 1)
 mining_randomness =    limit_up_down(get_input('Enter the mining randomness factor (0-0.9)             ', default=mining_randomness, my_type='float',), 0, 0.9)
 hash_rate_randomness = limit_up_down(get_input('Enter the hash rate randomness factor (0-0.9)          ', default=hash_rate_randomness, my_type='float',), 0, 0.9)
+reorg_ignore_factor =  limit_up_down(get_input('Enter the reorg ignore factor (1.05-3)                 ', default=reorg_ignore_factor, my_type='float',), 1.05, 3)
 
 #Write new inputs to config file
 with open(config_file,"w+") as f:
@@ -390,6 +408,7 @@ with open(config_file,"w+") as f:
     f.write(str(difficulty_window) + "\n")
     f.write(str(mining_randomness) + "\n")
     f.write(str(hash_rate_randomness) + "\n")
+    f.write(str(reorg_ignore_factor) + "\n")
     f.write(config_file_end_id)
 
 #%% Initialize
@@ -400,7 +419,7 @@ data.append(algos[_GRA][0:noAlgos]) #_GRA
 data.append(algos[_INT][0:noAlgos]) #_INT
 data.append(algos[_HR0][0:noAlgos]) #_HR0
 data.append(algos[_DF0][0:noAlgos]) #_DF0
-data.append([targetBT for i in range(noAlgos)]) #_BT0
+data.append([targetBT*noAlgos for i in range(noAlgos)]) #_BT0
 
 #Intialize data
 c.reset()
@@ -416,9 +435,10 @@ elif diff_algo == c.incr():
 else:
     diff_algo = DIFFICULTY_LWMA_00(difficulty_window=difficulty_window)
     print('\n\n ----- Using difficulty algorithm: LWMA Basic -----\n')
-miner = MINE_BLOCK(randomness_miner=mining_randomness, randomness_hash_rate=hash_rate_randomness, noAlgos=noAlgos, dist='poisson')
+miner = MINE_BLOCK(randomness_miner=mining_randomness, randomness_hash_rate=hash_rate_randomness, noAlgos=noAlgos, \
+                   initial_hash_rates=data[_HR0], dist='poisson')
 chain = BLOCKCHAIN(selfish_mining=False, noAlgos=noAlgos, initial_difficulties=data[_DF0], initial_block_time=1, \
-                   initial_hash_rates=data[_HR0], use_geometric_mean=True)
+                   initial_hash_rates=data[_HR0], reorg_ignore_factor=reorg_ignore_factor, use_geometric_mean=True)
 
 #For debugging
 diff_algo_vars = vars(diff_algo)
@@ -438,7 +458,7 @@ for i in range(1, settling_window): #0th elements are the initial values
         target_difficulties[j] = diff_algo.adjust_difficulty(chain.achieved_difficulties[j], chain.accumulated_difficulties[j], \
                                                              chain.block_times[j], data[_BT0][j])
         #Available hash rate
-        hash_rates[j] = miner.get_hash_rate(chain.hash_rates[j][0]) #Hash rate stays constant during initial phase
+        hash_rates[j] = miner.get_hash_rate(chain.hash_rates[j][0], j) #Hash rate stays constant during initial phase
         #Mine block
         block_times[j], achieved_difficulty[j] = miner.calc_block_hash(target_difficulties[j], hash_rates[j], data[_GRA][j], \
                                                                        data[_INT][j])
@@ -453,9 +473,9 @@ for i in range(settling_window, settling_window+blocksToSolve): #0th elements ar
                                                              chain.block_times[j], data[_BT0][j])
         #Game theory adjusting hash rate
         if i > settling_window + blocksToSolve/(noAlgos*2) and i < settling_window + blocksToSolve/(noAlgos) and j == 0:
-            hash_rates[j] = miner.get_hash_rate(chain.hash_rates[j][0]*2)
+            hash_rates[j] = miner.get_hash_rate(chain.hash_rates[j][0]*2, j)
         else:
-            hash_rates[j] = miner.get_hash_rate(chain.hash_rates[j][0]) #Hash rate stays constant during initial phase
+            hash_rates[j] = miner.get_hash_rate(chain.hash_rates[j][0], j) #Hash rate stays constant during initial phase
         #Mine block
         block_times[j], achieved_difficulty[j] = miner.calc_block_hash(target_difficulties[j], hash_rates[j], data[_GRA][j], \
                                                                        data[_INT][j])
