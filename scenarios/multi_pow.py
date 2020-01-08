@@ -1,5 +1,3 @@
-from statistics import mean
-import random
 import matplotlib.pyplot as plt
 import numpy as np
 import heapq
@@ -23,19 +21,11 @@ def get_indexes_max_n_values(my_list, count):
 
 #%% Limit number down to minimum value
 def limit_down(num, min_value):
-    if num < min_value:
-        return min_value
-    else:
-        return num
+    return max(num, min_value)
 
 #%% Limit number to between minimum and maximum values
 def limit_up_down(num, min_value, max_value):
-    if num > max_value:
-        return max_value
-    elif num < min_value:
-        return min_value
-    else:
-        return num
+    return (min(max(num, min_value), max_value))
 
 #%% Input helper - returns default (typed) value upon no input
 def get_input(my_text, default, my_type=None):
@@ -86,7 +76,7 @@ class DIFFICULTY_LWMA_00:
 
     def adjust_difficulty(self, difficulties, acc_difficulties, solve_times, target_time):
         n = self.difficulty_window if len(solve_times) > self.difficulty_window else len(solve_times)
-        avg_diff = mean(difficulties[len(difficulties)-n:])
+        avg_diff = np.mean(difficulties[len(difficulties)-n:])
         _sum = 0
         denom = 0
         for i in range(len(solve_times)-n, len(solve_times)):
@@ -236,8 +226,11 @@ class BLOCKCHAIN:
             self.block_times[i].append(initial_block_time)
             self.hash_rates[i].append(initial_hash_rates[i])
 
-    def get_difficulties_per_algo(self):
-        return self.difficulties
+    def get_achieved_difficulties_per_algo(self):
+        return self.achieved_difficulties
+
+    def get_accumulated_difficulties_per_algo(self):
+        return self.accumulated_difficulties
 
     def get_block_times_per_algo(self):
         return self.block_times
