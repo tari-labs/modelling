@@ -5,7 +5,7 @@ import numpy as np
 import heapq
 import os
 
-#%%
+#%% Functions header
 #------------------------------------
 #----------- Functions --------------
 #------------------------------------
@@ -54,7 +54,7 @@ def get_input(my_text, default, my_type=None):
         the_input = str(the_input)
     return the_input
 
-#%%
+#%% Classes header
 #------------------------------------
 #----------- Classes ----------------
 #------------------------------------
@@ -302,11 +302,11 @@ class BLOCKCHAIN:
             if init==False and debug==True:
                 print(difficulties)
             #Debug ˄˄˄˄˄˄˄˄˄˄˄˄˄˄
-            #Geometric mean for current algo
-            geometric_mean[i] = 1
+            #Geometric mean (overflow resistant) for current algo
+            geometric_mean[i] = 0
             for j in range(0, self.noAlgos):
-                geometric_mean[i] *=  difficulties[j]
-            geometric_mean[i] = pow(geometric_mean[i], 1/self.noAlgos)
+                geometric_mean[i] +=  np.log(difficulties[j])
+            geometric_mean[i] = np.exp(geometric_mean[i]/self.noAlgos)
         #Debug ˅˅˅˅˅˅˅˅˅˅˅˅˅˅
         if init==False and debug==True:
             print('')
@@ -335,12 +335,12 @@ class BLOCKCHAIN:
     def reorg():
         return
 
-#%%
+#%% Main program header
 #------------------------------------
 #----------- Main Program -----------
 #------------------------------------
 
-#%%
+#%% Algo constants
 #Constants
 c = COUNTER(initial_value=0, increment=1)
 _NAM = c.incr() #Name
@@ -359,7 +359,7 @@ algos.append(['Algo 4', 298.25, 0.7018, 1000000, 1000])
 algos.append(['Algo 5', 597.99, 0.4020, 10000000, 10000])
 algos = list(map(list, zip(*algos))) #data into row-column format
 
-#%%
+#%% User inputs
 #Read inputs from config file
 blocksToSolve = noAlgos = diff_algo = targetBT = difficulty_window = mining_randomness = hash_rate_randomness = blocksToSolve = ''
 config_file = os.getcwd() + os.path.sep + "my_inputs.txt"
@@ -399,7 +399,7 @@ with open(config_file,"w+") as f:
     f.write(str(hash_rate_randomness) + "\n")
     f.write(config_file_end_id)
 
-#%%
+#%% Initialize
 #Assign initial fixed data to algorithms
 data = []
 data.append(algos[_NAM][0:noAlgos]) #_NAM
@@ -432,7 +432,7 @@ diff_algo_vars = vars(diff_algo)
 miner_vars = vars(miner)
 chain_vars = vars(chain)
 
-#%%
+#%% Blockchain runtime
 #Initial: Adjusting difficulty to achieve target block time
 settling_window = int(abs(diff_algo.difficulty_window*1.5*noAlgos))
 target_difficulties = [[] for i in range(noAlgos)]
@@ -469,8 +469,7 @@ for i in range(settling_window, settling_window+blocksToSolve): #0th elements ar
     #Derermine and add winning block to the blockchain
     chain.add_block(block_times, target_difficulties, achieved_difficulty, hash_rates)
 
-#%%
-#Plot results
+#%% Plot results
 fig1, axs1 = plt.subplots(noAlgos, 3, figsize=(15, noAlgos*5))
 fig1.subplots_adjust(hspace=0.3, wspace=0.3)
 for i in range(0, noAlgos):
