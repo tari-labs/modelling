@@ -350,7 +350,7 @@ _HR0 = c.incr() #Initial hash rate
 _DF0 = c.incr() #Initial difficulty
 _BT0 = c.incr() #Initial block time
 
-#Mining algorithm choices
+#Mining algorithm choices (as per '../other/multi_pow_algos_approximation.*')
 algos = []
 algos.append(['Algo 1', 119.12, 0.8809, 1000, 1])
 algos.append(['Algo 2', 148.94, 0.8511, 10000, 10])
