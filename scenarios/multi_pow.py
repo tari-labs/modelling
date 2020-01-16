@@ -78,13 +78,18 @@ def calc_geometric_mean(n, previous_values, new_values):
 #----------- Classes ----------------
 #------------------------------------
 
+#%% Class: ERROR
+# Base class for other exceptions
+class ERROR(Exception):
+   pass
+
 #%% Class: COUNTER
 class COUNTER:
     def __init__(self, initial_value=0, increment=1):
-        self.new = initial_value
-        self.old = initial_value
-        self.initial_value = initial_value
-        self.increment = increment
+        self.new = np.int64(initial_value)
+        self.old = np.int64(initial_value)
+        self.initial_value = np.int64(initial_value)
+        self.increment = np.int64(increment)
 
     def reset(self, initial_value=0):
         self.new = initial_value
@@ -102,7 +107,7 @@ class COUNTER:
 #Linear Weighted Moving Average - Basic
 class DIFFICULTY_LWMA_00:
     def __init__(self, difficulty_window):
-        self.difficulty_window = difficulty_window
+        self.difficulty_window = abs(difficulty_window)
 
     def adjust_difficulty(self, difficulties, acc_difficulties, solve_times, target_time):
         n = self.difficulty_window if len(solve_times) > self.difficulty_window else len(solve_times)
@@ -119,7 +124,7 @@ class DIFFICULTY_LWMA_00:
 #(https://github.com/zawy12/difficulty-algorithms/issues/3#issue-279773112)
 class DIFFICULTY_LWMA_01_20171206:
     def __init__(self, difficulty_window):
-        self.difficulty_window = difficulty_window
+        self.difficulty_window = abs(difficulty_window)
 
     def adjust_difficulty(self, difficulties, acc_difficulties, solve_times, target_time):
         N = self.difficulty_window if len(solve_times) > self.difficulty_window else len(solve_times)
@@ -144,7 +149,7 @@ class DIFFICULTY_LWMA_01_20171206:
 #(https://github.com/tari-project/tari/blob/development/base_layer/core/src/proof_of_work/lwma_diff.rs)
 class DIFFICULTY_LWMA_01_20181127:
     def __init__(self, difficulty_window):
-        self.difficulty_window = difficulty_window
+        self.difficulty_window = abs(difficulty_window)
 
     def adjust_difficulty(self, difficulties, acc_difficulties, solve_times, target_time):
         n = self.difficulty_window if len(solve_times) > self.difficulty_window else len(solve_times)
@@ -244,26 +249,42 @@ class HASH_RATE:
 
 #%% Class: MINE_STRATEGY
 class MINE_STRATEGY:
-    def __init__(self, name):
-        self.name = name
+    def __init__(self, hash_rate_attack, contest_tip):
+        self.hash_rate_attack = bool(hash_rate_attack)
+        self.contest_tip = bool(contest_tip)
 
 #%% Class: MINER
 class MINER:
     def __init__(self, randomness_miner, dist, initial_difficulty, initial_block_time, \
-                 gradient, intercept, name, algo_no, diff_algo, target_time, state):
-        self.rand = RANDOM_FUNC(randomness_miner, dist, name, 'miner') #Object
+                 gradient, intercept, name, algo_no, diff_algo, target_time, strategy, state):
+        self.rand = RANDOM_FUNC(randomness_miner, dist, name, 'miner')
         self.gradient = gradient
         self.intercept = intercept
         self.name = name
         self.algo_no = algo_no
-        self.diff_algo = diff_algo #Object
+        if str(type(diff_algo)) != "<class '__main__.DIFFICULTY_LWMA_00'>" and \
+            str(type(diff_algo)) != "<class '__main__.DIFFICULTY_LWMA_01_20171206'>" and \
+            str(type(diff_algo)) != "<class '__main__.DIFFICULTY_LWMA_01_20181127'>":
+                raise ERROR('"diff_algo" wrong type: ' + str(type(diff_algo)))
+        else:
+            self.diff_algo = diff_algo
         self.target_time = target_time
-        self.count = COUNTER(initial_value=0, increment=1) #Object
-        self.hash_rate = hash_rate #Object
-        self.block_hash = BLOCK_HASH() #Object (singleton)
+        self.count = COUNTER(initial_value=0, increment=1)
+        if str(type(hash_rate)) != "<class '__main__.HASH_RATE'>":
+            raise ERROR('"hash_rate" wrong type: ' + str(type(hash_rate)))
+        else:
+            self.hash_rate = hash_rate
+        self.block_hash = BLOCK_HASH()
         self.blocks = []
-        self.state = state
-        #Own stats
+        if str(type(strategy)) != "<class '__main__.MINE_STRATEGY'>":
+            raise ERROR('"strategy" wrong type: ' + str(type(state)))
+        else:
+            self.strategy = strategy
+        if str(type(state)) != "<class '__main__.BLOCKCHAIN_STATE'>":
+            raise ERROR('"state" wrong type: ' + str(type(state)))
+        else:
+            self.state = state
+        #Own stats - ???
         self.target_difficulties = []
         self.target_difficulties.append(initial_difficulty)
         self.achieved_difficulties = []
@@ -394,25 +415,6 @@ class BLOCKCHAIN_STATE(BLOCKCHAIN_STATE_BORG):
         BLOCKCHAIN_STATE(noAlgos, initial_difficulties, initial_block_time, initial_hash_rates)
         return
 
-#%% Class: BLOCKCHAIN - #Old - to fix
-class BLOCKCHAIN:
-    __instance = None
-    def __init__(self, noAlgos, initial_difficulties, initial_block_time, initial_hash_rates, use_geometric_mean):
-        self.noAlgos = noAlgos
-        self.chain = []
-        self.target_difficulties = [[] for i in range(self.noAlgos)]
-        self.achieved_difficulties = [[] for i in range(self.noAlgos)]
-        self.accumulated_difficulties = [[] for i in range(self.noAlgos)]
-        self.block_times = [[] for i in range(self.noAlgos)]
-        self.hash_rates = [[] for i in range(self.noAlgos)]
-        self.use_geometric_mean = use_geometric_mean
-        for i in range(self.noAlgos):
-            self.target_difficulties[i].append(initial_difficulties[i])
-            self.achieved_difficulties[i].append(initial_difficulties[i])
-            self.accumulated_difficulties[i].append(initial_difficulties[i])
-            self.block_times[i].append(initial_block_time)
-            self.hash_rates[i].append(initial_hash_rates[i])
-
     def get_achieved_difficulties(self):
         achieved_difficulties = []
         for i in range(0, len(self.chain)):
@@ -459,28 +461,36 @@ class BLOCKCHAIN:
         repeats = list(map(list, zip(*repeats))) #data into row-column format
         return algo, repeats
 
+
+#%% Class: ORACLE
+class ORACLE():
+    def __init__(self, state, use_geometric_mean):
+        if str(type(state)) != "<class '__main__.BLOCKCHAIN_STATE'>":
+            raise ERROR('"state" wrong type: ' + str(type(state)))
+        else:
+            self.state = state
+        self.use_geometric_mean = use_geometric_mean
+
     def add_block(self, block_times, target_difficulties, achieved_difficulties, hash_rates, init=False):
         #Determine accumulated difficulties (geometric mean) for all competing algorithms
-        geometric_mean = calc_geometric_mean(self.noAlgos, self.accumulated_difficulties, achieved_difficulties)
+        geometric_mean = calc_geometric_mean(self.state.noAlgos, self.state.accumulated_difficulties, achieved_difficulties)
         #Select algorithm with highest accumulated difficulty or quickest block time
         if self.use_geometric_mean == True:
             algo = geometric_mean.index(max(geometric_mean))
         else:
             algo = block_times.index(min(block_times))
         #Add new block to the blockchain
-        accumulated_difficulty = self.accumulated_difficulties[algo][-1] + \
+        accumulated_difficulty = self.state.accumulated_difficulties[algo][-1] + \
             achieved_difficulties[algo]
-        self.chain.append(BLOCK(len(self.chain), algo, achieved_difficulties[algo], accumulated_difficulty, \
-                           geometric_mean[algo], block_times[algo], block_times[algo]/self.noAlgos, hash_rates[algo]))
+        self.state.chain.append(BLOCK(len(self.state.chain), algo, achieved_difficulties[algo], accumulated_difficulty, \
+                           geometric_mean[algo], block_times[algo], block_times[algo]/self.state.noAlgos, hash_rates[algo]))
         #Update blockchain stats
-        self.target_difficulties[algo].append(target_difficulties[algo])
-        self.achieved_difficulties[algo].append(achieved_difficulties[algo])
-        self.accumulated_difficulties[algo].append(accumulated_difficulty)
-        self.block_times[algo].append(block_times[algo])
-        self.hash_rates[algo].append(hash_rates[algo])
+        self.state.target_difficulties[algo].append(target_difficulties[algo])
+        self.state.achieved_difficulties[algo].append(achieved_difficulties[algo])
+        self.state.accumulated_difficulties[algo].append(accumulated_difficulty)
+        self.state.block_times[algo].append(block_times[algo])
+        self.state.hash_rates[algo].append(hash_rates[algo])
 
-    def reorg():
-        return
 
 #%% Main program header
 #------------------------------------
@@ -602,28 +612,34 @@ else:
     diff_algo = DIFFICULTY_LWMA_00(difficulty_window)
     print('\n\n ----- Using difficulty algorithm: LWMA Basic -----\n')
 
-state = BLOCKCHAIN_STATE(noAlgos=noAlgos, initial_difficulties=data[_DF0], initial_block_time=1, \
-                   initial_hash_rates=data[_HR0])
+#Blockchain state, eshared among all miners and oracle
+state = BLOCKCHAIN_STATE(noAlgos=noAlgos, initial_difficulties=data[_DF0], initial_block_time=1, initial_hash_rates=data[_HR0])
 if len(state.chain) > 0:
-    state.reset(noAlgos=noAlgos, initial_difficulties=data[_DF0], initial_block_time=1, \
-                initial_hash_rates=data[_HR0])
+    state.reset(noAlgos=noAlgos, initial_difficulties=data[_DF0], initial_block_time=1, initial_hash_rates=data[_HR0])
+
+#Mining strategies
+strategies = []
+strategies.append(MINE_STRATEGY(hash_rate_attack=True, contest_tip=False))
+strategies.append(MINE_STRATEGY(hash_rate_attack=False, contest_tip=True))
+strategies.append(MINE_STRATEGY(hash_rate_attack=False, contest_tip=False))
+
+#Miners
 miners = []
 for i in range(0, noAlgos):
     hash_rate = HASH_RATE(initial_hash_rate=algos[_HR0][i], profile=hash_rate_profiles[i], \
                           randomness=randomness_hash_rate, dist='poisson', name=algos[_NAM][i])
     miners.append(MINER(randomness_miner=randomness_miner, dist='poisson', initial_difficulty=algos[_DF0][i], \
-                        initial_block_time=targetBT, gradient=algos[_GRA][i], intercept=algos[_INT][i], \
-                        name=algos[_NAM][i], algo_no=i, diff_algo=diff_algo, target_time=targetBT, state=state))
+                        initial_block_time=targetBT, gradient=algos[_GRA][i], intercept=algos[_INT][i], name=algos[_NAM][i], \
+                        algo_no=i, diff_algo=diff_algo, target_time=targetBT, strategy=strategies[i], state=state))
 
-#Old - to fix
-chain = BLOCKCHAIN(noAlgos=noAlgos, initial_difficulties=data[_DF0], initial_block_time=1, \
-                   initial_hash_rates=data[_HR0], use_geometric_mean=True)
+#Oracle
+oracle = ORACLE(state=state, use_geometric_mean=True)
 
 #For debugging
 miners_vars = []
 for i in range(0, noAlgos):
     miners_vars.append(vars(miners[i]))
-chain_vars = vars(chain)
+oracle_vars = vars(oracle)
 state_vars = vars(state)
 
 #%% Blockchain runtime
