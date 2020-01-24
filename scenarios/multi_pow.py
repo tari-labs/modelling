@@ -298,7 +298,6 @@ class MINER:
         self.block_number = -1
 
     def create_block(self, target_difficulty, accumulated_difficulty, previous_hash, block_number, init):
-        print('create_block>accumulated_difficulty:', accumulated_difficulty)
         #Solve time based on ratio between target difficulty and available hash rate
         self.count.reset()
         hash_rate = self.hash_rate.get_hash_rate(block_number, init)
@@ -473,6 +472,19 @@ class BLOCKCHAIN_STATE(BLOCKCHAIN_STATE_BORG):
         BLOCKCHAIN_STATE(noAlgos, initial_difficulties, initial_block_time, initial_hash_rates)
         return
 
+    def update(self, block):
+        block_time = block.solve_time #/self.noAlgos
+        self.system_time = self.chain[-1].time_stamp + block_time
+        block.finalize(block_time, self.system_time)
+        self.chain.append(block)
+        #Update blockchain stats
+        self.target_difficulties[block.algo].append(block.target_difficulty)
+        self.achieved_difficulties[block.algo].append(block.achieved_difficulty)
+        self.accumulated_difficulties[block.algo].append(block.accumulated_difficulty)
+        self.solve_times[block.algo].append(block.solve_time)
+        self.hash_rates[block.algo].append(block.hash_rate)
+        return
+
     def get_achieved_difficulties(self):
         return [ x.achieved_difficulty for x in state.chain ]
 
@@ -488,6 +500,9 @@ class BLOCKCHAIN_STATE(BLOCKCHAIN_STATE_BORG):
     def get_hash_rates(self):
         return [ x.hash_rate for x in state.chain ]
 
+    def get_block_hash(self):
+        return [ x.block_hash for x in state.chain ]
+
     def get_block_index(self, block_hash):
         try:
             return [ x.block_hash for x in state.chain ].index(block_hash)
@@ -495,7 +510,9 @@ class BLOCKCHAIN_STATE(BLOCKCHAIN_STATE_BORG):
             return -1
 
     def get_algo(self):
-        algo = [ x.algo for x in state.chain ]
+        return [ x.algo for x in state.chain ]
+
+    def count_repeats(self):
         #Count repeats
         repeats = []
         counts = [1 for i in range(self.noAlgos)]
@@ -506,7 +523,7 @@ class BLOCKCHAIN_STATE(BLOCKCHAIN_STATE_BORG):
                 repeats.append([i-1, self.chain[i-1].algo, counts[self.chain[i-1].algo]])
                 counts[self.chain[i-1].algo] = 1
         repeats = list(map(list, zip(*repeats))) #data into row-column format
-        return algo, repeats
+        return repeats
 
 
 #%% Class: ORACLE
@@ -533,38 +550,33 @@ class ORACLE():
                     if blocks[j][-1].previous_hash == self.state.chain[-1].block_hash:
                         time[0].append(j)
                         time[1].append(blocks[j][-1].solve_time)
-            print('time_1:', time)
             #Add block with quickest solve time to the blockchain
             if len(time[0]) > 0:
                 algo = time[0][time[1].index(min(time[1]))] #Quickest time
-                block_time = blocks[algo][-1].solve_time #/self.state.noAlgos
-                self.state.system_time = self.state.chain[-1].time_stamp + block_time
-                blocks[algo][-1].finalize(block_time, self.state.system_time)
-                self.state.chain.append(blocks[algo][-1])
-                #Update blockchain stats
-                self.state.target_difficulties[algo].append(blocks[algo][-1].target_difficulty)
-                self.state.achieved_difficulties[algo].append(blocks[algo][-1].achieved_difficulty)
-                self.state.accumulated_difficulties[algo].append(blocks[algo][-1].accumulated_difficulty)
-                self.state.solve_times[algo].append(blocks[algo][-1].solve_time)
-                self.state.hash_rates[algo].append(blocks[algo][-1].hash_rate)
-                time[0].pop(algo)
-                time[1].pop(algo)
+                winning_block = blocks[algo]
+                self.state.update(blocks[algo][-1])
             else:
-                time[0].append(0)
-                time[1].append(miners[0].target_time*2)
+                algo = -1
+                self.state.system_time = self.chain[-1].time_stamp + self.state.target_time
+            print('time:', time[1], '  system_time:', self.state.system_time)
             #Give opportunity for re-org based on geometric mean of contending algos
-            print('time_2:', time)
-            if len(time[0]) > 0:
+            if len(time[0]) > 1:
                 blocks = [[] for i in range(self.state.noAlgos)]
                 for j in range(0, len(miners)):
-                    blocks[j] = miners[j].produce_next_blocks(i, self.state.system_time + max(time[1]) * 1.01, init)
-                    print(vars(blocks[j][-1]))
+                    if j == algo:
+                        blocks[j] = winning_block
+                    else:
+                        blocks[j] = miners[j].produce_next_blocks(i, self.state.system_time + max(time[1]) * 1.01, init)
                 # prepare data for geometric mean calc
-                index = self.state.get_block_index(blocks[0][-1].previous_hash)
-                print(blocks[0][-1].previous_hash, index)
-                self.state.accumulated_difficulties[index]
+                accumulated_difficulties = []
+                for i in range(len(self.state.accumulated_difficulties)):
+                    accumulated_difficulties.append(self.state.accumulated_difficulties[i][-1])
+                achieved_difficulties = []
+                for i in range(len(self.state.achieved_difficulties)):
+                    achieved_difficulties.append(self.state.achieved_difficulties[i][-1])
                 # perform geometric mean calc
-                #geometric_mean = calc_geometric_mean(self.state.noAlgos, accumulated_difficulties, achieved_difficulties)
+                geometric_mean = calc_geometric_mean(self.state.noAlgos, accumulated_difficulties, achieved_difficulties)
+                print('geo_mean:', geometric_mean)
                 # reoerg to required depth if applicable
                 #??
         return
