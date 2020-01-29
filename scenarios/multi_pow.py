@@ -54,22 +54,32 @@ def get_input(my_text, default, my_type=None):
         the_input = str(the_input)
     return the_input
 
+#%% get_distribution_text
+def get_distribution_text(value):
+    if value == 0:
+        return 'none'
+    elif value == 1:
+        return 'uniform'
+    elif value == 2:
+        return 'normal'
+    elif value == 3:
+        return 'poisson'
+
 #%% calc_geometric_mean
 # Geometric mean (overflow resistant)
-def calc_geometric_mean(n, previous_values, new_values):
-    geometric_mean = [[] for i in range(n)]
-    values = [[] for i in range(n)]
-    for i in range(0, n):
-        #Add new value to previous value for current member, else use previous value
-        for j in range(0, n):
-            if i == j:
-                values[j] = previous_values[j] + new_values[j]
-            else:
-                values[j] = previous_values[j]
-        geometric_mean[i] = 0
-        for j in range(0, n):
-            geometric_mean[i] +=  np.log(values[j])
-        geometric_mean[i] = np.exp(geometric_mean[i]/n)
+def calc_geometric_mean(values):
+    try:
+        n = len(values)
+    except:
+        print('Error: "def calc_geometric_mean(values)": One dimensional list or array required.')
+        return 0.0
+    geometric_mean = 0.0
+    for j in range(0, n):
+        geometric_mean +=  np.log(values[j])
+    try:
+        geometric_mean = np.exp(geometric_mean/n)
+    except:
+        print('Error: "def calc_geometric_mean(values)": Division by zero, zero length array/list provided.')
     return geometric_mean
 
 
@@ -98,6 +108,11 @@ class COUNTER:
     def incr(self):
         self.old = self.new
         self.new += self.increment
+        return self.old
+
+    def decr(self):
+        self.old = self.new
+        self.new -= self.increment
         return self.old
 
     def val(self):
@@ -320,6 +335,8 @@ class MINER:
         return block
 
     def produce_next_blocks(self, block_number, time_now, init):
+        print('produce_next_blocks: ', self.name, ': ', self.strategy.selfish_mining, self.strategy.contest_tip, \
+              self.block_number, block_number, time_now)
         #Apply mining strategy
         if self.strategy.hash_rate_attack == True and init == False and self.selfish_mining == False:
             if self.hash_rate.get_hash_rate(block_number, init) >= self.hash_rate.get_hash_rate(block_number-1, init) * \
@@ -362,29 +379,34 @@ class MINER:
             self.blocks.append(self.create_block(target_difficulty, self.state.accumulated_difficulties[self.algo_no][-1], \
                                                  blockchain_tip, block_number, init))
             self.block_number = block_number
-
+            self.strategy.send_blocks = True
         # Wait for system time to catch up with accumulated selfish mining time, then set flag to send blocks array to oracle
         if self.strategy.selfish_mining == True:
             index = self.state.get_block_index(self.blocks[0].previous_hash)
             selfish_mining_time = self.state.chain[index].time_stamp + sum([ x.block_time for x in self.blocks ])
             if time_now >= selfish_mining_time:
                 self.strategy.send_blocks = True
-            print(self.name, 'self.strategy.send_blocks = True')
+            print('produce_next_blocks: ', self.name, 'selfish_mining, send_blocks = True')
 
         #Send block(s) to oracle
-        if self.strategy.selfish_mining == False:
-            if self.block_number == block_number:
+        if self.strategy.selfish_mining == False: # and self.strategy.contest_tip == False:
+            if self.strategy.send_blocks == True:
+                self.strategy.send_blocks = False
                 return self.blocks
             else:
-                print(self.name, 'self.strategy.selfish_mining == False', 'return empty blocks')
+                print('produce_next_blocks: ', self.name, '                 ', 'return empty blocks')
                 return []
-        elif self.strategy.send_blocks == True:
-            print(self.name, 'strategy.send_blocks')
-            self.strategy.selfish_mining = False
-            self.strategy.send_blocks = False
-            return self.blocks
+        elif self.strategy.selfish_mining == True:
+            if self.strategy.send_blocks == True:
+                print(self.name, 'strategy.send_blocks')
+                self.strategy.selfish_mining = False
+                self.strategy.send_blocks = False
+                return self.blocks
+            else:
+                print('produce_next_blocks: ', self.name, '(selfish_mining) ', 'return empty blocks')
+                return []
         else:
-            print(self.name, 'self.strategy.selfish_mining == True', 'return empty blocks')
+            print('produce_next_blocks: ', self.name, '(undefined state)', 'return empty blocks')
             return []
 
 
@@ -535,13 +557,30 @@ class ORACLE():
             self.state = state
         self.use_geometric_mean = use_geometric_mean
 
-    def get_new_blocks(self):
-        return
+    def get_geometric_mean_data(self, blocks):
+        accumulated_difficulties = [0 for i in range(state.noAlgos)]
+        #From the current tip's perspective
+        root_index = self.state.get_block_index(blocks[0].block_hash)
+        if root_index < 0:
+            return []
+        tip = blocks[0].algo
+        accumulated_difficulties[tip] = blocks[-1].accumulated_difficulty
+        #For the competing algos
+        my_range = [i for i in range(state.noAlgos)]
+        my_range.pop(my_range.index(tip))
+        for i in my_range:
+            j = root_index - 1
+            while accumulated_difficulties[i] == 0 and j >= 0:
+                if self.state.chain[j].algo == i:
+                    accumulated_difficulties[i] = self.state.chain[j].accumulated_difficulty
+                else:
+                    j -= 1
+        return accumulated_difficulties
 
     def run(self, miners, blocks_amount, init):
         for i in range(self.state.noAlgos, blocks_amount):
-            #Get blocks for current round (no reorgs)
-            blocks = [[] for i in range(self.state.noAlgos)]
+            #Get blocks for current round (no re-orgs)
+            blocks = [[] for k in range(self.state.noAlgos)]
             time = [[],[]]
             for j in range(0, len(miners)):
                 blocks[j] = miners[j].produce_next_blocks(i, self.state.system_time, init)
@@ -561,21 +600,26 @@ class ORACLE():
             print('time:', time[1], '  system_time:', self.state.system_time)
             #Give opportunity for re-org based on geometric mean of contending algos
             if len(time[0]) > 1:
-                blocks = [[] for i in range(self.state.noAlgos)]
+                #Get re-org blocks for current round (miners not participating will return empty blocks)
+                blocks = [[] for k in range(self.state.noAlgos)]
+                participants = []
                 for j in range(0, len(miners)):
-                    if j == algo:
-                        blocks[j] = winning_block
-                    else:
-                        blocks[j] = miners[j].produce_next_blocks(i, self.state.system_time + max(time[1]) * 1.01, init)
-                # prepare data for geometric mean calc
-                accumulated_difficulties = []
-                for i in range(len(self.state.accumulated_difficulties)):
-                    accumulated_difficulties.append(self.state.accumulated_difficulties[i][-1])
-                achieved_difficulties = []
-                for i in range(len(self.state.achieved_difficulties)):
-                    achieved_difficulties.append(self.state.achieved_difficulties[i][-1])
+                    if j != algo:
+                        blocks[j] = miners[j].produce_next_blocks(i, self.state.system_time - min(time[1]) + max(time[1]) * 1.01, init)
+                        if len(blocks[j]) > 0:
+                            participants.append(j)
+                if len(participants) > 0:
+                    blocks[algo] = winning_block
+                    participants.append(algo)
+                    participants.sort()
+                print('participants:', participants)
                 # perform geometric mean calc
-                geometric_mean = calc_geometric_mean(self.state.noAlgos, accumulated_difficulties, achieved_difficulties)
+                geometric_mean = [[0] for k in range(self.state.noAlgos)]
+                for k in participants:
+                    accumulated_difficulties = self.get_geometric_mean_data(blocks[k])
+                    print(k, accumulated_difficulties)
+                    geometric_mean[k] = calc_geometric_mean(accumulated_difficulties)
+                winning_algo = geometric_mean.index(max(geometric_mean))
                 print('geo_mean:', geometric_mean)
                 # reoerg to required depth if applicable
                 #??
@@ -736,8 +780,8 @@ strategies.append(MINE_STRATEGY(hash_rate_attack=False, hash_rate_trigger=0, con
 miners = []
 for i in range(0, noAlgos):
     hash_rate = HASH_RATE(initial_hash_rate=algos[_HR0][i], profile=hash_rate_profiles[i], \
-                          randomness=randomness_hash_rate, dist='poisson', name=algos[_NAM][i])
-    miners.append(MINER(randomness_miner=randomness_miner, dist='poisson', initial_difficulty=algos[_DF0][i], \
+                          randomness=randomness_hash_rate, dist=get_distribution_text(dist_hash_rate), name=algos[_NAM][i])
+    miners.append(MINER(randomness_miner=randomness_miner, dist=get_distribution_text(dist_miner), initial_difficulty=algos[_DF0][i], \
                         initial_block_time=targetBT, gradient=algos[_GRA][i], intercept=algos[_INT][i], name=algos[_NAM][i], \
                         algo_no=i, diff_algo=diff_algo, target_time=targetBT, strategy=strategies[i], hash_rate=hash_rate, \
                         state=state))
