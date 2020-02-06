@@ -341,9 +341,10 @@ class MINER:
                     self.strategy.selfish_mining = True
                     self.strategy.send_blocks = False
                     self.strategy.selfish_mining_start = True
-                    print('\nMiner: ', self.name, ': selfish_mining trigger, selfish_mining', \
-                          self.strategy.selfish_mining, ', contest_tip', self.strategy.contest_tip, \
-                          ', block', block_number, ', time', time_now)
+                    print('\nMiner: ', self.name, ': selfish_mining trigger', \
+                          ', contest_tip', self.strategy.contest_tip, ', hash_rate(n-1)', \
+                          self.hash_rate.get_hash_rate(block_number-1, init), ', hash_rate(n)', \
+                          self.hash_rate.get_hash_rate(block_number, init), ', block', block_number, 'time', time_now)
         #Produce next blocks
         # - Normal operation
         if self.strategy.selfish_mining == False and self.block_number < block_number:
@@ -380,8 +381,8 @@ class MINER:
                 achieved_difficulties.append(self.blocks[-1].achieved_difficulty)
                 accumulated_difficulties.append(self.blocks[-1].accumulated_difficulty)
                 solve_times.append(self.blocks[-1].solve_time)
-                print('Miner: ', self.name, ':', achieved_difficulties[-1], accumulated_difficulties[-1], \
-                      solve_times[-1], block_number_)
+                #print('Miner: ', self.name, ':', achieved_difficulties[-1], accumulated_difficulties[-1], \
+                #      solve_times[-1], block_number_)
                 block_number_ += 1
             self.block_number = block_number_
             index = self.state.get_block_index(self.blocks[0].previous_hash)
@@ -594,13 +595,13 @@ class ORACLE():
         if root_index < 0:
             return
         while len(self.state.chain) > root_index + 1:
-            print('Oracle: removing block', self.state.chain[-1].block_number, 'with hash', self.state.chain[-1].block_hash, \
-                  'of', self.state.chain[-1].name)
+            #print('Oracle: removing block', self.state.chain[-1].block_number, 'with hash', self.state.chain[-1].block_hash, \
+            #      'of', self.state.chain[-1].name)
             self.state.chain.pop()
         for i in range(len(blocks)):
             self.state.update(blocks[i])
-            print('Oracle: added block', self.state.chain[-1].block_number, 'with hash', self.state.chain[-1].block_hash, \
-                  'of', self.state.chain[-1].name)
+            #print('Oracle: added block', self.state.chain[-1].block_number, 'with hash', self.state.chain[-1].block_hash, \
+            #      'of', self.state.chain[-1].name)
         for i in range(0, len(miners)):
             miners[i].block_number = self.state.chain[-1].block_number
 
@@ -627,9 +628,9 @@ class ORACLE():
             else:
                 algo = -1
                 self.state.system_time = self.state.chain[-1].time_stamp + self.state.target_time
-            if len(time[0]) != self.state.noAlgos:
-                print('\nOracle: solve times', time[2], time[1], 'system_time', self.state.system_time, ', block number', \
-                      block_number)
+            #if len(time[0]) != self.state.noAlgos:
+            #    print('\nOracle: solve times', time[2], time[1], 'system_time', self.state.system_time, ', block number', \
+            #          block_number)
             #Give opportunity for re-org based on geometric mean of contending algos
             if len(time[0]) > 1:
                 #Get re-org blocks for current round (miners not participating will return empty blocks)
@@ -645,6 +646,8 @@ class ORACLE():
                     blocks[algo] = block_at_tip
                     participants.append(algo)
                     participants.sort()
+                    print('\nOracle: system_time', self.state.system_time - min(time[1]) + max(time[1]) * 1.01, ', block number', \
+                          block_number)
                     print('Oracle: Re-org participants', [blocks[k][-1].name for k in participants])
                 #Perform geometric mean calc
                 if len(participants) > 0:
@@ -685,14 +688,6 @@ algos.append(['Algo 4', 298.25, 0.7018, 1000000, 1000])
 algos.append(['Algo 5', 597.99, 0.4020, 10000000, 10000])
 algos = list(map(list, zip(*algos))) #data into row-column format
 
-hash_rate_profiles = []
-hash_rate_profiles.append([[[50, 250], [1.5, 1.5]], \
-                           [[250, 750], [1.5, 0.5]], \
-                           [[750, 1000], [1.0, 1.0]]]) # Algo 1
-hash_rate_profiles.append([[[0, 500], [1, 1]]]) # Algo 2
-hash_rate_profiles.append([[[0, 500], [1, 1]]]) # Algo 3
-hash_rate_profiles.append([[[0, 500], [1, 1]]]) # Algo 4
-hash_rate_profiles.append([[[0, 500], [1, 1]]]) # Algo 5
 
 #%% User inputs
 #Read inputs from config file
@@ -758,6 +753,15 @@ with open(config_file,"w+") as f:
 
 #%% Initialize
 #Intialize data
+hash_rate_profiles = []
+hash_rate_profiles.append([[[50, 7500], [1.0, 0.5]], \
+                           [[7500, 8000], [0.5, 0.5]], \
+                           [[8000, limit_down(blocksToSolve, 8500)], [1.0, 1.0]]]) # Algo 1
+hash_rate_profiles.append([[[0, blocksToSolve], [1, 1]]]) # Algo 2
+hash_rate_profiles.append([[[0, blocksToSolve], [1, 1]]]) # Algo 3
+hash_rate_profiles.append([[[0, blocksToSolve], [1, 1]]]) # Algo 4
+hash_rate_profiles.append([[[0, blocksToSolve], [1, 1]]]) # Algo 5
+
 c.reset()
 if diff_algo == c.incr():
     diff_algo = DIFFICULTY_LWMA_00(difficulty_window)
@@ -799,8 +803,10 @@ oracle = ORACLE(state=state, use_geometric_mean=True)
 
 #For debugging
 miners_vars = []
+hash_rate_vars =[]
 for i in range(0, noAlgos):
     miners_vars.append(vars(miners[i]))
+    hash_rate_vars.append(vars(miners[i].hash_rate))
 oracle_vars = vars(oracle)
 state_vars = vars(state)
 
@@ -815,6 +821,16 @@ oracle.run(miners=miners, blocks_amount=blocksToSolve, init=False)
 
 
 #%% Plot results
+fig0, axs0 = plt.subplots(1, noAlgos, figsize=(15, 5))
+fig0.subplots_adjust(hspace=0.3, wspace=0.3)
+for i in range(0, noAlgos):
+    x = np.arange(1, len(miners[i].hash_rate.values) + 1)
+    axs0[i].plot(x, miners[i].hash_rate.values)
+    axs0[i].set_title(miners[i].name + ': Applied hash rate after init')
+    axs0[i].grid()
+
+plt.show()
+
 fig1, axs1 = plt.subplots(noAlgos, 3, figsize=(15, noAlgos*5))
 fig1.subplots_adjust(hspace=0.3, wspace=0.3)
 for i in range(0, noAlgos):
@@ -879,3 +895,8 @@ for i in range(0, len(y_max)):
         r'(' + str(miners[repeats[1][y_max[i]]].name) + ')')
 
 plt.show()
+
+#%% ToDo
+# Implement contest_tip
+# Simulate system time based on the number of algos that participate, take into account when performing selfish mining
+# Investigate why changing the random distribution function has non-logical results
