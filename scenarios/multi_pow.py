@@ -342,9 +342,9 @@ class MINER:
                     self.strategy.send_blocks = False
                     self.strategy.selfish_mining_start = True
                     print('\nMiner: ', self.name, ': selfish_mining trigger', \
-                          ', contest_tip', self.strategy.contest_tip, ', hash_rate(n-1)', \
-                          self.hash_rate.get_hash_rate(block_number-1, init), ', hash_rate(n)', \
-                          self.hash_rate.get_hash_rate(block_number, init), ', block', block_number, 'time', time_now)
+                          ', contest_tip', self.strategy.contest_tip, ', hash_rate(n-1 to n)', \
+                          self.hash_rate.get_hash_rate(block_number-1, init),  \
+                          self.hash_rate.get_hash_rate(block_number, init), ', block', block_number, ', time', time_now)
         #Produce next blocks
         # - Normal operation
         if self.strategy.selfish_mining == False and self.block_number < block_number:
@@ -352,7 +352,7 @@ class MINER:
             blockchain_tip = self.state.chain[-1].block_hash
             target_difficulty = self.diff_algo.adjust_difficulty(self.state.achieved_difficulties[self.algo_no],
                                                                  self.state.accumulated_difficulties[self.algo_no], \
-                                                                 self.state.solve_times[self.algo_no], self.state.target_time)
+                                                                 self.state.solve_times[self.algo_no], self.state.miner_target_time)
             self.blocks.append(self.create_block(target_difficulty, self.state.accumulated_difficulties[self.algo_no][-1], \
                                                  blockchain_tip, block_number, init))
             self.block_number = block_number
@@ -374,7 +374,7 @@ class MINER:
             block_number_ = block_number
             while len(self.blocks) < self.diff_algo.difficulty_window * self.strategy.self_mine_factor:
                 target_difficulty = self.diff_algo.adjust_difficulty(achieved_difficulties,  accumulated_difficulties, \
-                                                                     solve_times, self.state.target_time)
+                                                                     solve_times, self.state.miner_target_time)
                 self.blocks.append(self.create_block(target_difficulty, accumulated_difficulties[-1], blockchain_tip, \
                                                      block_number_, init))
                 blockchain_tip = self.blocks[-1].block_hash
@@ -477,7 +477,7 @@ class BLOCKCHAIN_STATE_BORG:
 #%% Class: BLOCKCHAIN_STATE
 class BLOCKCHAIN_STATE(BLOCKCHAIN_STATE_BORG):
     __instance = None
-    def __init__(self, noAlgos, initial_difficulties, initial_block_time, initial_hash_rates, target_time):
+    def __init__(self, noAlgos, initial_difficulties, initial_block_time, initial_hash_rates, blockchain_target_time):
         #Initialize singleton
         BLOCKCHAIN_STATE_BORG.__init__(self)
         #Other
@@ -491,7 +491,8 @@ class BLOCKCHAIN_STATE(BLOCKCHAIN_STATE_BORG):
             self.solve_times = [[] for i in range(self.noAlgos)]
             self.hash_rates = [[] for i in range(self.noAlgos)]
             self.system_time = initial_block_time
-            self.target_time = target_time
+            self.blockchain_target_time = blockchain_target_time
+            self.miner_target_time = blockchain_target_time * noAlgos
             self.block_number = -1
             for i in range(self.noAlgos):
                 self.target_difficulties[i].append(initial_difficulties[i])
@@ -505,8 +506,7 @@ class BLOCKCHAIN_STATE(BLOCKCHAIN_STATE_BORG):
         BLOCKCHAIN_STATE(noAlgos, initial_difficulties, initial_block_time, initial_hash_rates)
         return
 
-    def update(self, block):
-        block_time = block.solve_time #/self.noAlgos
+    def update(self, block, block_time):
         self.system_time = self.chain[-1].time_stamp + block_time
         block.finalize(block_time, self.system_time)
         self.chain.append(block)
@@ -599,7 +599,10 @@ class ORACLE():
             #      'of', self.state.chain[-1].name)
             self.state.chain.pop()
         for i in range(len(blocks)):
-            self.state.update(blocks[i])
+            if len(blocks) > 1:
+                self.state.update(blocks[i], blocks[i].solve_time)
+            else:
+                self.state.update(blocks[i], blocks[i].solve_time/self.state.noAlgos)
             #print('Oracle: added block', self.state.chain[-1].block_number, 'with hash', self.state.chain[-1].block_hash, \
             #      'of', self.state.chain[-1].name)
         for i in range(0, len(miners)):
@@ -624,10 +627,12 @@ class ORACLE():
             if len(time[0]) > 0:
                 algo = time[0][time[1].index(min(time[1]))] #Quickest time
                 block_at_tip = blocks[algo]
-                self.state.update(blocks[algo][-1])
+                delta_time = sum([limit_up(x, state.miner_target_time*2) for x in time[1]])/len(time[1])/len(time[1])
+                self.state.update(blocks[algo][-1], delta_time)
+                print('Oracle: ', time[1], delta_time, self.state.system_time)
             else:
                 algo = -1
-                self.state.system_time = self.state.chain[-1].time_stamp + self.state.target_time
+                self.state.system_time = self.state.chain[-1].time_stamp + self.state.blockchain_target_time
             #if len(time[0]) != self.state.noAlgos:
             #    print('\nOracle: solve times', time[2], time[1], 'system_time', self.state.system_time, ', block number', \
             #          block_number)
@@ -754,9 +759,9 @@ with open(config_file,"w+") as f:
 #%% Initialize
 #Intialize data
 hash_rate_profiles = []
-hash_rate_profiles.append([[[50, 7500], [1.0, 0.5]], \
-                           [[7500, 8000], [0.5, 0.5]], \
-                           [[8000, limit_down(blocksToSolve, 8500)], [1.0, 1.0]]]) # Algo 1
+hash_rate_profiles.append([[[50, 250], [3.0, 3.0]], \
+                           [[250, 1800], [3.0, 1.0]], \
+                           [[1800, limit_down(blocksToSolve, 1800)], [1.0, 1.0]]]) # Algo 1
 hash_rate_profiles.append([[[0, blocksToSolve], [1, 1]]]) # Algo 2
 hash_rate_profiles.append([[[0, blocksToSolve], [1, 1]]]) # Algo 3
 hash_rate_profiles.append([[[0, blocksToSolve], [1, 1]]]) # Algo 4
@@ -778,7 +783,7 @@ else:
 
 #Blockchain state, eshared among all miners and oracle
 state = BLOCKCHAIN_STATE(noAlgos=noAlgos, initial_difficulties=algos[_DF0], initial_block_time=1, \
-                         initial_hash_rates=algos[_HR0], target_time=targetBT)
+                         initial_hash_rates=algos[_HR0], blockchain_target_time=targetBT)
 if len(state.chain) > 0:
     state.reset(noAlgos=noAlgos, initial_difficulties=algos[_DF0], initial_block_time=1, initial_hash_rates=algos[_HR0])
 
