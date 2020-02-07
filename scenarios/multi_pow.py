@@ -3,6 +3,8 @@ import numpy as np
 import heapq
 import os
 import copy
+from itertools import cycle
+from itertools import combinations
 
 #%% Functions header
 #------------------------------------
@@ -453,7 +455,7 @@ class BLOCK:
         self.target_difficulty = target_difficulty
         self.achieved_difficulty = float(achieved_difficulty)
         self.accumulated_difficulty = float(accumulated_difficulty)
-        self.solve_time = float(solve_time)
+        self.solve_time = round(float(solve_time), 1)
         self.hash_rate = float(hash_rate)
         self.block_number = np.uint64(block_number)
         self.block_hash = np.uint64(block_hash)
@@ -463,8 +465,8 @@ class BLOCK:
         self.time_stamp = float(0)
 
     def finalize(self, block_time, time_stamp):
-        self.block_time = float(block_time)
-        self.time_stamp = float(time_stamp)
+        self.block_time = round(float(block_time), 1)
+        self.time_stamp = round(float(time_stamp), 1)
 
 
 #%% Class: BLOCKCHAIN_SHARED_STATE
@@ -507,7 +509,7 @@ class BLOCKCHAIN_STATE(BLOCKCHAIN_STATE_BORG):
         return
 
     def update(self, block, block_time):
-        self.system_time = self.chain[-1].time_stamp + block_time
+        self.system_time = round(self.chain[-1].time_stamp + block_time, 1)
         block.finalize(block_time, self.system_time)
         self.chain.append(block)
         #Update blockchain stats
@@ -561,12 +563,12 @@ class BLOCKCHAIN_STATE(BLOCKCHAIN_STATE_BORG):
 
 #%% Class: ORACLE
 class ORACLE():
-    def __init__(self, state, use_geometric_mean):
+    def __init__(self, state):
         if str(type(state)) != "<class '__main__.BLOCKCHAIN_STATE'>":
             raise ERROR('"state" wrong type: ' + str(type(state)))
         else:
             self.state = state
-        self.use_geometric_mean = use_geometric_mean
+        self.min_time = []
 
     def get_geometric_mean_data(self, blocks):
         accumulated_difficulties = [0 for i in range(state.noAlgos)]
@@ -589,6 +591,13 @@ class ORACLE():
                     j -= 1
         return accumulated_difficulties
 
+    def calc_time(self, time):
+        time_r = []
+        for i in range(0, len(time)):
+            time_c = heapq.nsmallest(len(time)-i, time)
+            time_r.append(sum([x for x in time_c])/len(time_c)/len(time_c))
+        return round(min(time_r), 1)
+
     def re_org(self, blocks):
         root_index = self.state.get_block_index(blocks[0].previous_hash)
         print('Oracle: root_index is', root_index, 'for re-org based on', blocks[0].name)
@@ -609,6 +618,7 @@ class ORACLE():
             miners[i].block_number = self.state.chain[-1].block_number
 
     def run(self, miners, blocks_amount, init):
+        self.min_time = []
         for i in range(0, blocks_amount):
             block_number = int(self.state.chain[-1].block_number) + 1
             #Get blocks for current round (no re-orgs)
@@ -621,15 +631,19 @@ class ORACLE():
                 if len(blocks[j]) == 1:
                     if blocks[j][-1].previous_hash == self.state.chain[-1].block_hash:
                         time[0].append(j)
-                        time[1].append(round(blocks[j][-1].solve_time, 3))
+                        time[1].append(blocks[j][-1].solve_time)
                         time[2].append(blocks[j][-1].name)
             #Add block with quickest solve time to the blockchain
             if len(time[0]) > 0:
-                algo = time[0][time[1].index(min(time[1]))] #Quickest time
+                min_time = [k for k, x in enumerate(time[1]) if x == min(time[1])]
+                if self.min_time != min_time:
+                    self.min_time = min_time
+                    min_time_cycle = cycle(min_time)
+                algo = time[0][next(min_time_cycle)] #Quickest time, alternate if algos are equal
                 block_at_tip = blocks[algo]
-                delta_time = sum([limit_up(x, state.miner_target_time*2) for x in time[1]])/len(time[1])/len(time[1])
+                delta_time = self.calc_time(time[1])
                 self.state.update(blocks[algo][-1], delta_time)
-                print('Oracle: ', time[1], delta_time, self.state.system_time)
+                #print('Oracle: ', time[1], delta_time, self.state.system_time, algo)
             else:
                 algo = -1
                 self.state.system_time = self.state.chain[-1].time_stamp + self.state.blockchain_target_time
@@ -759,8 +773,8 @@ with open(config_file,"w+") as f:
 #%% Initialize
 #Intialize data
 hash_rate_profiles = []
-hash_rate_profiles.append([[[50, 250], [3.0, 3.0]], \
-                           [[250, 1800], [3.0, 1.0]], \
+hash_rate_profiles.append([[[50, 250], [2.5, 2.5]], \
+                           [[250, 1800], [2.5, 1.0]], \
                            [[1800, limit_down(blocksToSolve, 1800)], [1.0, 1.0]]]) # Algo 1
 hash_rate_profiles.append([[[0, blocksToSolve], [1, 1]]]) # Algo 2
 hash_rate_profiles.append([[[0, blocksToSolve], [1, 1]]]) # Algo 3
@@ -804,7 +818,7 @@ for i in range(0, noAlgos):
                         state=state))
 
 #Oracle
-oracle = ORACLE(state=state, use_geometric_mean=True)
+oracle = ORACLE(state=state)
 
 #For debugging
 miners_vars = []
@@ -903,5 +917,4 @@ plt.show()
 
 #%% ToDo
 # Implement contest_tip
-# Simulate system time based on the number of algos that participate, take into account when performing selfish mining
 # Investigate why changing the random distribution function has non-logical results
