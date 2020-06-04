@@ -335,7 +335,7 @@ class MINER:
                       accumulated_difficulty_, hash_rate, solve_time)
         return block
 
-    def produce_next_blocks(self, block_number, time_now, init):
+    def produce_next_blocks(self, block_number, time_now, init, contest_mode):
         #Apply mining strategy
         if self.strategy.hash_rate_attack == True and init == False and self.strategy.selfish_mining == False:
             if self.hash_rate.get_hash_rate(block_number, init) >= self.hash_rate.get_hash_rate(block_number-1, init) * \
@@ -346,7 +346,7 @@ class MINER:
                     print('\nMiner: ', self.name, ': selfish_mining trigger', \
                           ', contest_tip', self.strategy.contest_tip, ', hash_rate(n-1 to n)', \
                           self.hash_rate.get_hash_rate(block_number-1, init),  \
-                          self.hash_rate.get_hash_rate(block_number, init), ', block', block_number, ', time', time_now)
+                          self.hash_rate.get_hash_rate(block_number, init), ', block', block_number, ', time_now', time_now)
         #Produce next blocks
         # - Normal operation
         if self.strategy.selfish_mining == False and self.block_number < block_number:
@@ -364,9 +364,9 @@ class MINER:
         elif self.strategy.selfish_mining == True and self.strategy.selfish_mining_start == True:
             self.blocks.clear()
             blockchain_tip = self.state.chain[-1].block_hash
-            n_ = self.diff_algo.difficulty_window + 5 if len(self.state.solve_times[self.algo_no]) > \
-                self.diff_algo.difficulty_window + 5 else len(self.state.solve_times[self.algo_no])
-            n = len(self.state.solve_times[self.algo_no]) - n_
+            # not used: n_ = self.diff_algo.difficulty_window + 5 if len(self.state.solve_times[self.algo_no]) > \
+            # not used:     self.diff_algo.difficulty_window + 5 else len(self.state.solve_times[self.algo_no])
+            # not used: n = len(self.state.solve_times[self.algo_no]) - n_
             achieved_difficulties = copy.deepcopy(self.state.achieved_difficulties[self.algo_no]) #self.state.achieved_difficulties[self.algo_no][n:]
             #print('achieved_difficulties:', achieved_difficulties)
             accumulated_difficulties = copy.deepcopy(self.state.accumulated_difficulties[self.algo_no]) #self.state.accumulated_difficulties[self.algo_no][n:]
@@ -395,7 +395,7 @@ class MINER:
 
         # Wait for system time to catch up with accumulated selfish mining time, then set flag to send blocks array to oracle
         if self.strategy.selfish_mining == True:
-            if time_now >= self.selfish_mining_time:
+            if time_now >= self.selfish_mining_time: # and contest_mode == True:
                 self.strategy.send_blocks = True
 
         #Send block(s) to oracle
@@ -407,7 +407,7 @@ class MINER:
                 return []
         elif self.strategy.selfish_mining == True:
             if self.strategy.send_blocks == True:
-                print('Miner: ', self.name, ':', 'selfish_mining, send', len(self.blocks), 'blocks')
+                print('Miner: ', self.name, ':', 'selfish_mining, sending', len(self.blocks), 'blocks, time_now', time_now)
                 self.strategy.selfish_mining = False
                 self.strategy.send_blocks = False
                 self.block_number = -1
@@ -626,13 +626,15 @@ class ORACLE():
             time = [[],[], []]
             #print('\nOracle: Get blocks for current round (no re-orgs), block number', block_number)
             for j in range(0, len(miners)):
-                blocks[j] = miners[j].produce_next_blocks(block_number, self.state.system_time, init)
+                blocks[j] = miners[j].produce_next_blocks(block_number, self.state.system_time, init, contest_mode=False)
                 #Log individual solve times for valid blocks
                 if len(blocks[j]) == 1:
                     if blocks[j][-1].previous_hash == self.state.chain[-1].block_hash:
                         time[0].append(j)
                         time[1].append(blocks[j][-1].solve_time)
                         time[2].append(blocks[j][-1].name)
+                elif len(blocks[j]) > 1:
+                    print('Received invalid blocks from', blocks[j][-1].name, ' at block', block_number, ' time', self.state.system_time)
             #Add block with quickest solve time to the blockchain
             if len(time[0]) > 0:
                 min_time = [k for k, x in enumerate(time[1]) if x == min(time[1])]
@@ -643,7 +645,7 @@ class ORACLE():
                 block_at_tip = blocks[algo]
                 delta_time = self.calc_time(time[1])
                 self.state.update(blocks[algo][-1], delta_time)
-                #print('Oracle: ', time[1], delta_time, self.state.system_time, algo)
+                #print('Oracle: times', time[1], ' d_time', delta_time, ' time', self.state.system_time, '  - winner:', blocks[algo][-1].name)
             else:
                 algo = -1
                 self.state.system_time = self.state.chain[-1].time_stamp + self.state.blockchain_target_time
@@ -651,21 +653,22 @@ class ORACLE():
             #    print('\nOracle: solve times', time[2], time[1], 'system_time', self.state.system_time, ', block number', \
             #          block_number)
             #Give opportunity for re-org based on geometric mean of contending algos
-            if len(time[0]) > 1:
+            if len(time[0]) > 0:
                 #Get re-org blocks for current round (miners not participating will return empty blocks)
                 blocks = [[] for k in range(self.state.noAlgos)]
                 participants = []
                 for j in range(0, len(miners)):
                     if j != algo:
                         blocks[j] = miners[j].produce_next_blocks(block_number, self.state.system_time - min(time[1]) + \
-                                                                  max(time[1]) * 1.01, init)
+                                                                  max(time[1]) * 1.1, init, contest_mode=True)
                         if len(blocks[j]) > 0:
                             participants.append(j)
                 if len(participants) > 0:
+                    print('\nOracle: Re-org detected from ', [blocks[k][-1].name for k in participants])
                     blocks[algo] = block_at_tip
                     participants.append(algo)
                     participants.sort()
-                    print('\nOracle: system_time', self.state.system_time - min(time[1]) + max(time[1]) * 1.01, ', block number', \
+                    print('Oracle: system_time', self.state.system_time - min(time[1]) + max(time[1]) * 1.01, ', block number', \
                           block_number)
                     print('Oracle: Re-org participants', [blocks[k][-1].name for k in participants])
                 #Perform geometric mean calc
@@ -795,7 +798,7 @@ else:
     diff_algo = DIFFICULTY_LWMA_00(difficulty_window)
     print('\n\n ----- Using difficulty algorithm: LWMA Basic -----\n')
 
-#Blockchain state, eshared among all miners and oracle
+#Blockchain state, shared among all miners and oracle
 state = BLOCKCHAIN_STATE(noAlgos=noAlgos, initial_difficulties=algos[_DF0], initial_block_time=1, \
                          initial_hash_rates=algos[_HR0], blockchain_target_time=targetBT)
 if len(state.chain) > 0:
@@ -803,9 +806,11 @@ if len(state.chain) > 0:
 
 #Mining strategies
 strategies = []
-strategies.append(MINE_STRATEGY(hash_rate_attack=True, hash_rate_trigger=1.5, self_mine_factor=0.9, contest_tip=False))
-strategies.append(MINE_STRATEGY(hash_rate_attack=False, hash_rate_trigger=0, self_mine_factor=0, contest_tip=True))
-strategies.append(MINE_STRATEGY(hash_rate_attack=False, hash_rate_trigger=0, self_mine_factor=0, contest_tip=False))
+strategies.append(MINE_STRATEGY(hash_rate_attack=True, hash_rate_trigger=1.5, self_mine_factor=1.0, contest_tip=False)) # Algo 1
+strategies.append(MINE_STRATEGY(hash_rate_attack=False, hash_rate_trigger=0, self_mine_factor=0, contest_tip=False)) # Algo 2
+strategies.append(MINE_STRATEGY(hash_rate_attack=False, hash_rate_trigger=0, self_mine_factor=0, contest_tip=False)) # Algo 3
+strategies.append(MINE_STRATEGY(hash_rate_attack=False, hash_rate_trigger=0, self_mine_factor=0, contest_tip=False)) # Algo 4
+strategies.append(MINE_STRATEGY(hash_rate_attack=False, hash_rate_trigger=0, self_mine_factor=0, contest_tip=False)) # Algo 5
 
 #Miners
 miners = []
