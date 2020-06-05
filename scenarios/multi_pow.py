@@ -162,8 +162,8 @@ class DIFFICULTY_LWMA_01_20171206:
 
 #%% Class: DIFFICULTY_LWMA_01_20181127
 #Linear Weighted Moving Average - Bitcoin & Zcash Clones - 2018-11-27
-#(https://github.com/zawy12/difficulty-algorithms/issues/3#issuecomment-442129791)
-#(https://github.com/tari-project/tari/blob/development/base_layer/core/src/proof_of_work/lwma_diff.rs)
+#( https://github.com/zawy12/difficulty-algorithms/issues/3#issuecomment-442129791 )
+#( https://github.com/tari-project/tari/blob/development/base_layer/core/src/proof_of_work/lwma_diff.rs )
 class DIFFICULTY_LWMA_01_20181127:
     def __init__(self, difficulty_window):
         self.difficulty_window = abs(difficulty_window)
@@ -184,6 +184,44 @@ class DIFFICULTY_LWMA_01_20181127:
             ave_difficulty = acc_difficulties[0]
         target = ave_difficulty * k / weighted_times
         return  target
+
+#%% Class: DIFFICULTY_TSA_20181108
+#TSA, Time Stamp Adjustment to Difficulty, Copyright (c) 2018 Zawy, MIT License.
+#( https://github.com/zawy12/difficulty-algorithms/issues/36 )
+class DIFFICULTY_TSA_20181108:
+    def __init__(self, difficulty_window):
+        self.difficulty_window = abs(difficulty_window)
+        self.lwma = DIFFICULTY_LWMA_01_20181127(self.difficulty_window)
+
+    def adjust_difficulty(self, difficulties, acc_difficulties, solve_times, target_time):
+        TSA_D = self.lwma.adjust_difficulty(difficulties, acc_difficulties, solve_times, target_time)
+
+        k = 1E3
+        M = 5
+        TM = target_time*M
+        exk = k
+
+        solve_time = np.int64(min(solve_times[-1], 6*target_time))
+        for i in range(1, np.int64(solve_time/TM)):
+            exk = (exk*np.int64(2.718*k))/k
+        f = solve_time % TM
+        exk = (exk*(k+(f*(k+(f*(k+(f*k)/(3*TM)))/(2*TM)))/(TM)))/k
+        TSA_D = max(np.int64(10), (TSA_D*((1000*(k*solve_time))/(k*target_time+(solve_time-target_time)*exk)))/1000)
+        j = 1000000000
+        while j > 1:
+            if TSA_D > j*100:
+                TSA_D = ((TSA_D+j/2)/j)*j
+                break
+            else:
+                j /= 10
+        if M == 1:
+            TSA_D = (TSA_D*85)/100
+        elif M == 2:
+            TSA_D = (TSA_D*95)/100
+        elif M == 3:
+            TSA_D = (TSA_D*99)/100
+
+        return np.int64(TSA_D)
 
 #%% Class: RANDOM_FUNC
 class RANDOM_FUNC:
@@ -287,7 +325,8 @@ class MINER:
         self.algo_no = algo_no
         if str(type(diff_algo)) != "<class '__main__.DIFFICULTY_LWMA_00'>" and \
             str(type(diff_algo)) != "<class '__main__.DIFFICULTY_LWMA_01_20171206'>" and \
-            str(type(diff_algo)) != "<class '__main__.DIFFICULTY_LWMA_01_20181127'>":
+            str(type(diff_algo)) != "<class '__main__.DIFFICULTY_LWMA_01_20181127'>" and \
+            str(type(diff_algo)) != "<class '__main__.DIFFICULTY_TSA_20181108'>":
                 raise ERROR('"diff_algo" wrong type: ' + str(type(diff_algo)))
         else:
             self.diff_algo = diff_algo
@@ -738,8 +777,8 @@ blocksToSolve =           limit_down(get_input('Enter number of blocks to solve 
                                                default=blocksToSolve, my_type='int'), 0)
 noAlgos =              limit_up_down(get_input('Enter the number of mining algorithms (1-%s)            ' \
                                                % (len(algos)), default=noAlgos, my_type='int'), 1, len(algos))
-diff_algo =            limit_up_down(get_input('Diff algo: LWMA(0), LWMA-1_171206(1), LWMA-1_181127(2) ', \
-                                               default=diff_algo, my_type='int',), 0, 2)
+diff_algo =            limit_up_down(get_input('Diff algo: LWMA(0), LWMA-1`17(1), LWMA-1`18(2), TSA(3) ', \
+                                               default=diff_algo, my_type='int',), 0, 3)
 targetBT =                limit_down(get_input('Enter the system target block time (>=10)              ', \
                                                default=targetBT, my_type='int'), 10)
 difficulty_window =       limit_down(get_input('Enter the difficulty algo window (>=1)                 ', \
@@ -777,7 +816,7 @@ with open(config_file,"w+") as f:
 #Intialize data
 hash_rate_profiles = []
 hash_rate_profiles.append([[[50, 250], [2.5, 2.5]], \
-                           [[250, 1800], [2.5, 1.0]], \
+                           [[250, 1800], [2.5, 1.75]], \
                            [[1800, limit_down(blocksToSolve, 1800)], [1.0, 1.0]]]) # Algo 1
 hash_rate_profiles.append([[[0, blocksToSolve], [1, 1]]]) # Algo 2
 hash_rate_profiles.append([[[0, blocksToSolve], [1, 1]]]) # Algo 3
@@ -793,6 +832,9 @@ elif diff_algo == c.incr():
     print('\n\n ----- Using difficulty algorithm: LWMA-1 version 2017-12-06 -----\n')
 elif diff_algo == c.incr():
     diff_algo = DIFFICULTY_LWMA_01_20181127(difficulty_window)
+    print('\n\n ----- Using difficulty algorithm: LWMA-1 version 2018-11-27 -----\n')
+elif diff_algo == c.incr():
+    diff_algo = DIFFICULTY_TSA_20181108(difficulty_window)
     print('\n\n ----- Using difficulty algorithm: LWMA-1 version 2018-11-27 -----\n')
 else:
     diff_algo = DIFFICULTY_LWMA_00(difficulty_window)
