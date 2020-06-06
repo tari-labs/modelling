@@ -103,9 +103,9 @@ class COUNTER:
         self.initial_value = np.int64(initial_value)
         self.increment = np.int64(increment)
 
-    def reset(self, initial_value=0):
-        self.new = initial_value
-        self.old = initial_value
+    def reset(self):
+        self.new = self.initial_value
+        self.old = self.initial_value
 
     def incr(self):
         self.old = self.new
@@ -125,6 +125,7 @@ class COUNTER:
 class DIFFICULTY_LWMA_00:
     def __init__(self, difficulty_window):
         self.difficulty_window = abs(difficulty_window)
+        print(' ----- Using difficulty algorithm: LWMA Basic -----')
 
     def adjust_difficulty(self, difficulties, acc_difficulties, solve_times, target_time):
         n = self.difficulty_window if len(solve_times) > self.difficulty_window else len(solve_times)
@@ -142,6 +143,7 @@ class DIFFICULTY_LWMA_00:
 class DIFFICULTY_LWMA_01_20171206:
     def __init__(self, difficulty_window):
         self.difficulty_window = abs(difficulty_window)
+        print(' ----- Using difficulty algorithm: LWMA-1 version 2017-12-06 -----')
 
     def adjust_difficulty(self, difficulties, acc_difficulties, solve_times, target_time):
         N = self.difficulty_window if len(solve_times) > self.difficulty_window else len(solve_times)
@@ -167,6 +169,7 @@ class DIFFICULTY_LWMA_01_20171206:
 class DIFFICULTY_LWMA_01_20181127:
     def __init__(self, difficulty_window):
         self.difficulty_window = abs(difficulty_window)
+        print(' ----- Using difficulty algorithm: LWMA-1 version 2018-11-27 -----')
 
     def adjust_difficulty(self, difficulties, acc_difficulties, solve_times, target_time):
         n = self.difficulty_window if len(solve_times) > self.difficulty_window else len(solve_times)
@@ -191,22 +194,23 @@ class DIFFICULTY_LWMA_01_20181127:
 class DIFFICULTY_TSA_20181108:
     def __init__(self, difficulty_window):
         self.difficulty_window = abs(difficulty_window)
+        self.k = 1E3
+        self.M = 5 # M can from 3 (aggressive) to 5 (conservative) to 10 (slow)
         self.lwma = DIFFICULTY_LWMA_01_20181127(self.difficulty_window)
+        print('               with')
+        print(' ----- Using difficulty algorithm: TSA version 2018-11-08 [(c) 2018 Zawy]-----')
 
     def adjust_difficulty(self, difficulties, acc_difficulties, solve_times, target_time):
         TSA_D = self.lwma.adjust_difficulty(difficulties, acc_difficulties, solve_times, target_time)
 
-        k = 1E3
-        M = 5
-        TM = target_time*M
-        exk = k
-
+        TM = target_time*self.M
+        exk = self.k
         solve_time = np.int64(min(solve_times[-1], 6*target_time))
         for i in range(1, np.int64(solve_time/TM)):
-            exk = (exk*np.int64(2.718*k))/k
+            exk = (exk*np.int64(2.718*self.k))/self.k
         f = solve_time % TM
-        exk = (exk*(k+(f*(k+(f*(k+(f*k)/(3*TM)))/(2*TM)))/(TM)))/k
-        TSA_D = max(np.int64(10), (TSA_D*((1000*(k*solve_time))/(k*target_time+(solve_time-target_time)*exk)))/1000)
+        exk = (exk*(self.k+(f*(self.k+(f*(self.k+(f*self.k)/(3*TM)))/(2*TM)))/(TM)))/self.k
+        TSA_D = max(np.int64(10), (TSA_D*((1000*(self.k*solve_time))/(self.k*target_time+(solve_time-target_time)*exk)))/1000)
         j = 1000000000
         while j > 1:
             if TSA_D > j*100:
@@ -214,11 +218,11 @@ class DIFFICULTY_TSA_20181108:
                 break
             else:
                 j /= 10
-        if M == 1:
+        if self.M == 1:
             TSA_D = (TSA_D*85)/100
-        elif M == 2:
+        elif self.M == 2:
             TSA_D = (TSA_D*95)/100
-        elif M == 3:
+        elif self.M == 3:
             TSA_D = (TSA_D*99)/100
 
         return np.int64(TSA_D)
@@ -385,9 +389,10 @@ class MINER:
                     self.strategy.send_blocks = False
                     self.strategy.selfish_mining_start = True
                     print('\nMiner: ', self.name, ': selfish_mining trigger', \
-                          ', contest_tip', self.strategy.contest_tip, ', hash_rate(n-1 to n)', \
-                          self.hash_rate.get_hash_rate(block_number-1, init),  \
-                          self.hash_rate.get_hash_rate(block_number, init), ', block', block_number, ', time_now', time_now)
+                          ', contest_tip', self.strategy.contest_tip, ', hash_rate: (n-1)', \
+                          round(self.hash_rate.get_hash_rate(block_number-1, init)[0], 0), '(n)', \
+                          round(self.hash_rate.get_hash_rate(block_number, init)[0], 0), \
+                          ', block', block_number, ', time_now', time_now)
         #Produce next blocks
         # - Normal operation
         if self.strategy.selfish_mining == False and self.block_number < block_number:
@@ -448,7 +453,7 @@ class MINER:
                 return []
         elif self.strategy.selfish_mining == True:
             if self.strategy.send_blocks == True:
-                print('Miner: ', self.name, ':', 'selfish_mining, sending', len(self.blocks), 'blocks, time_now', time_now)
+                print('Miner: ', self.name, ':', 'selfish_mining, sending', len(self.blocks), 'blocks after', block_number-self.block_number, 'blocks, time_now', time_now)
                 self.strategy.selfish_mining = False
                 self.strategy.send_blocks = False
                 self.block_number = -1
@@ -505,9 +510,10 @@ class BLOCK:
         self.block_time = float(0)
         self.time_stamp = float(0)
 
-    def finalize(self, block_time, time_stamp):
+    def finalize(self, block_time, time_stamp, geometric_mean):
         self.block_time = round(float(block_time), 1)
         self.time_stamp = round(float(time_stamp), 1)
+        self.geometric_mean = geometric_mean
 
 
 #%% Class: BLOCKCHAIN_SHARED_STATE
@@ -549,9 +555,31 @@ class BLOCKCHAIN_STATE(BLOCKCHAIN_STATE_BORG):
         BLOCKCHAIN_STATE(noAlgos, initial_difficulties, initial_block_time, initial_hash_rates)
         return
 
+    def get_geometric_mean_data(self, block):
+        accumulated_difficulties = [1 for i in range(self.noAlgos)]
+        #From the current tip's perspective
+        root_index = self.get_block_index(block.previous_hash)
+        if root_index < 0:
+            return []
+        tip = block.algo
+        accumulated_difficulties[tip] = block.accumulated_difficulty
+        #For the competing algos
+        my_range = [i for i in range(self.noAlgos)]
+        my_range.pop(my_range.index(tip))
+        for i in my_range:
+            j = root_index - 1
+            while accumulated_difficulties[i] == 1 and j >= 0:
+                if self.chain[j].algo == i:
+                    accumulated_difficulties[i] = self.chain[j].accumulated_difficulty
+                else:
+                    j -= 1
+        return accumulated_difficulties
+
     def update(self, block, block_time):
         self.system_time = round(self.chain[-1].time_stamp + block_time, 1)
-        block.finalize(block_time, self.system_time)
+        accumulated_difficulties = self.get_geometric_mean_data(block)
+        geometric_mean = calc_geometric_mean(accumulated_difficulties)
+        block.finalize(block_time, self.system_time, geometric_mean)
         self.chain.append(block)
         #Update blockchain stats
         self.target_difficulties[block.algo].append(block.target_difficulty)
@@ -610,6 +638,7 @@ class ORACLE():
         else:
             self.state = state
         self.min_time = []
+        self.init_blocks_count = 0
 
     def get_geometric_mean_data(self, blocks):
         accumulated_difficulties = [0 for i in range(state.noAlgos)]
@@ -660,9 +689,10 @@ class ORACLE():
 
     def run(self, miners, blocks_amount, init):
         self.min_time = []
-        for i in range(0, blocks_amount):
+        blocks_requested = blocks_amount if init == True else blocks_amount + self.init_blocks_count
+        while len(self.state.chain) < blocks_requested:
             block_number = int(self.state.chain[-1].block_number) + 1
-            #Get blocks for current round (no re-orgs)
+            # Get blocks for current round (no re-orgs)
             blocks = [[] for k in range(self.state.noAlgos)]
             time = [[],[], []]
             #print('\nOracle: Get blocks for current round (no re-orgs), block number', block_number)
@@ -675,8 +705,9 @@ class ORACLE():
                         time[1].append(blocks[j][-1].solve_time)
                         time[2].append(blocks[j][-1].name)
                 elif len(blocks[j]) > 1:
-                    print('Received invalid blocks from', blocks[j][-1].name, ' at block', block_number, ' time', self.state.system_time)
-            #Add block with quickest solve time to the blockchain
+                    print('Received invalid blocks from', blocks[j][-1].name, ' at block', block_number, ' time',
+                          self.state.system_time)
+            # Add block with quickest solve time to the blockchain
             if len(time[0]) > 0:
                 min_time = [k for k, x in enumerate(time[1]) if x == min(time[1])]
                 if self.min_time != min_time:
@@ -686,16 +717,17 @@ class ORACLE():
                 block_at_tip = blocks[algo]
                 delta_time = self.calc_time(time[1])
                 self.state.update(blocks[algo][-1], delta_time)
-                #print('Oracle: times', time[1], ' d_time', delta_time, ' time', self.state.system_time, '  - winner:', blocks[algo][-1].name)
+                #print('Oracle: times', time[1], ' d_time', delta_time, ' time', self.state.system_time, '  - winner:', \
+                #       blocks[algo][-1].name)
             else:
                 algo = -1
                 self.state.system_time = self.state.chain[-1].time_stamp + self.state.blockchain_target_time
             #if len(time[0]) != self.state.noAlgos:
             #    print('\nOracle: solve times', time[2], time[1], 'system_time', self.state.system_time, ', block number', \
             #          block_number)
-            #Give opportunity for re-org based on geometric mean of contending algos
+            # Give opportunity for re-org based on geometric mean of contending algos
             if len(time[0]) > 0:
-                #Get re-org blocks for current round (miners not participating will return empty blocks)
+                # Get re-org blocks for current round (miners not participating will return empty blocks)
                 blocks = [[] for k in range(self.state.noAlgos)]
                 participants = []
                 for j in range(0, len(miners)):
@@ -712,7 +744,7 @@ class ORACLE():
                     print('Oracle: system_time', self.state.system_time - min(time[1]) + max(time[1]) * 1.01, ', block number', \
                           block_number)
                     print('Oracle: Re-org participants', [blocks[k][-1].name for k in participants])
-                #Perform geometric mean calc
+                # Perform geometric mean calc
                 if len(participants) > 0:
                     geometric_mean = [0 for k in range(self.state.noAlgos)]
                     for k in participants:
@@ -725,15 +757,17 @@ class ORACLE():
                     if winning_algo != block_at_tip[0].algo:
                         print('Oracle: Re-org based on', blocks[winning_algo][-1].name)
                         self.re_org(blocks[winning_algo])
+        if init == True:
+            self.init_blocks_count = blocks_amount
 
 
 #%% Main program header
 #------------------------------------
-#----------- Main Program -----------
+#            Main Program
 #------------------------------------
 
-#%% Algo constants
-#Constants
+#%% Mining algo constants
+# ---- Identifiers
 c = COUNTER(initial_value=0, increment=1)
 _NAM = c.incr() #Name
 _GRA = c.incr() #Gradient
@@ -742,6 +776,7 @@ _HR0 = c.incr() #Initial hash rate
 _DF0 = c.incr() #Initial difficulty
 _BT0 = c.incr() #Target block time
 
+# ---- Mining algorithm
 #Mining algorithm choices (as per '../other/multi_pow_algos_approximation.*')
 algos = []
 algos.append(['Algo 1', 119.12, 0.8809, 1000, 1])
@@ -753,7 +788,7 @@ algos = list(map(list, zip(*algos))) #data into row-column format
 
 
 #%% User inputs
-#Read inputs from config file
+# ---- Read config file
 blocksToSolve = noAlgos = diff_algo = targetBT = difficulty_window = randomness_miner = dist_miner = randomness_hash_rate = \
     dist_hash_rate = ''
 config_file = os.getcwd() + os.path.sep + "my_inputs_b.txt"
@@ -774,7 +809,7 @@ if os.path.isfile(config_file):
             randomness_hash_rate = float(fl[c.incr()].strip())
             dist_hash_rate = int(fl[c.incr()].strip())
 
-#Get new iputs
+# ---- Get new iputs
 blocksToSolve =           limit_down(get_input('Enter number of blocks to solve after initial period   ', \
                                                default=blocksToSolve, my_type='int'), 0)
 noAlgos =              limit_up_down(get_input('Enter the number of mining algorithms (1-%s)            ' \
@@ -800,7 +835,7 @@ if randomness_hash_rate != 0:
 else:
     dist_hash_rate = 0
 
-#Write new inputs to config file
+# ---- Write config file
 with open(config_file,"w+") as f:
     f.write(config_file_start_id + "\n")
     f.write(str(blocksToSolve) + "\n")
@@ -814,49 +849,84 @@ with open(config_file,"w+") as f:
     f.write(str(dist_hash_rate) + "\n")
     f.write(config_file_end_id)
 
-#%% Initialize
-#Intialize data
-hash_rate_profiles = []
-hash_rate_profiles.append([[[50, 250], [2.5, 2.5]], \
-                           [[250, 1800], [2.5, 1.75]], \
-                           [[1800, limit_down(blocksToSolve, 1800)], [1.0, 1.0]]]) # Algo 1
-hash_rate_profiles.append([[[0, blocksToSolve], [1, 1]]]) # Algo 2
-hash_rate_profiles.append([[[0, blocksToSolve], [1, 1]]]) # Algo 3
-hash_rate_profiles.append([[[0, blocksToSolve], [1, 1]]]) # Algo 4
-hash_rate_profiles.append([[[0, blocksToSolve], [1, 1]]]) # Algo 5
-
+#%% Initialize - set hash rate profiles
+# ---- Profile selection
+profile = [4, 1, 1, 1, 1]
 c.reset()
-if diff_algo == c.incr():
-    diff_algo = DIFFICULTY_LWMA_00(difficulty_window)
-    print('\n\n ----- Using difficulty algorithm: LWMA Basic -----\n')
-elif diff_algo == c.incr():
-    diff_algo = DIFFICULTY_LWMA_01_20171206(difficulty_window)
-    print('\n\n ----- Using difficulty algorithm: LWMA-1 version 2017-12-06 -----\n')
-elif diff_algo == c.incr():
-    diff_algo = DIFFICULTY_LWMA_01_20181127(difficulty_window)
-    print('\n\n ----- Using difficulty algorithm: LWMA-1 version 2018-11-27 -----\n')
-elif diff_algo == c.incr():
-    diff_algo = DIFFICULTY_TSA_20181108(difficulty_window)
-    print('\n\n ----- Using difficulty algorithm: TSA version 2018-11-08 [(c) 2018 Zawy]-----\n')
-else:
-    diff_algo = DIFFICULTY_LWMA_00(difficulty_window)
-    print('\n\n ----- Using difficulty algorithm: LWMA Basic -----\n')
+hash_rate_profiles = []
+# ---- Algo 1 hash rate profile
+if profile[c.incr()] == 1:
+    hash_rate_profiles.append([[[0, blocksToSolve], [1, 1]]])
+elif profile[c.val()] == 2:
+    hash_rate_profiles.append([[[50, 250], [2.5, 2.5]], \
+                               [[250, 1800], [2.5, 1.0]], \
+                               [[1800, limit_down(blocksToSolve, 1800)], [1.0, 1.0]]])
+elif profile[c.val()] == 3:
+    hash_rate_profiles.append([[[50, 250], [2.5, 2.5]], \
+                               [[250, 1800], [2.5, 1.75]], \
+                               [[1800, limit_down(blocksToSolve, 1800)], [1.0, 1.0]]])
+elif profile[c.val()] == 4:
+    hash_rate_profiles.append([[[1, 250], [2.5, 2.5]], \
+                               [[250, 500], [1.0, 1.0]], \
+                               [[500, 750], [2.5, 2.5]], \
+                               [[750, 1000], [1.0, 1.0]], \
+                               [[1000, 1250], [2.5, 2.5]], \
+                               [[1250, 1500], [1.0, 1.0]], \
+                               [[1500, 1750], [2.5, 2.5]], \
+                               [[1750, limit_down(blocksToSolve, 1800)], [1.0, 1.0]]])
+# ---- Algo 2 hash rate profile
+if profile[c.incr()] == 1:
+    hash_rate_profiles.append([[[0, blocksToSolve], [1, 1]]])
+# ---- Algo 3 hash rate profile
+if profile[c.incr()] == 1:
+    hash_rate_profiles.append([[[0, blocksToSolve], [1, 1]]])
+# ---- Algo 4 hash rate profile
+if profile[c.incr()] == 1:
+    hash_rate_profiles.append([[[0, blocksToSolve], [1, 1]]])
+# ---- Algo 5 hash rate profile
+if profile[c.incr()] == 1:
+    hash_rate_profiles.append([[[0, blocksToSolve], [1, 1]]])
 
-#Blockchain state, shared among all miners and oracle
+#%% Initialize - blockchain state
+#  (shared among all miners and oracle)
 state = BLOCKCHAIN_STATE(noAlgos=noAlgos, initial_difficulties=algos[_DF0], initial_block_time=1, \
                          initial_hash_rates=algos[_HR0], blockchain_target_time=targetBT)
 if len(state.chain) > 0:
     state.reset(noAlgos=noAlgos, initial_difficulties=algos[_DF0], initial_block_time=1, initial_hash_rates=algos[_HR0])
 
-#Mining strategies
+#%% Initialize - set mining strategies
+#  hash_rate_trigger: start selfish mining when hash rate increase by this this factor
+#  self_mine_factor: determines the amount of blocks to selfish mine as a factor of the difficulty_window
+#  contest_tip: TODO
 strategies = []
-strategies.append(MINE_STRATEGY(hash_rate_attack=True, hash_rate_trigger=1.5, self_mine_factor=1.0, contest_tip=False)) # Algo 1
-strategies.append(MINE_STRATEGY(hash_rate_attack=False, hash_rate_trigger=0, self_mine_factor=0, contest_tip=False)) # Algo 2
-strategies.append(MINE_STRATEGY(hash_rate_attack=False, hash_rate_trigger=0, self_mine_factor=0, contest_tip=False)) # Algo 3
-strategies.append(MINE_STRATEGY(hash_rate_attack=False, hash_rate_trigger=0, self_mine_factor=0, contest_tip=False)) # Algo 4
-strategies.append(MINE_STRATEGY(hash_rate_attack=False, hash_rate_trigger=0, self_mine_factor=0, contest_tip=False)) # Algo 5
+# Algo 1
+strategies.append(MINE_STRATEGY(hash_rate_attack=True, hash_rate_trigger=1.5, self_mine_factor=10.0, contest_tip=False))
+# Algo 2
+strategies.append(MINE_STRATEGY(hash_rate_attack=False, hash_rate_trigger=0, self_mine_factor=0, contest_tip=False))
+# Algo 3
+strategies.append(MINE_STRATEGY(hash_rate_attack=False, hash_rate_trigger=0, self_mine_factor=0, contest_tip=False))
+# Algo 4
+strategies.append(MINE_STRATEGY(hash_rate_attack=False, hash_rate_trigger=0, self_mine_factor=0, contest_tip=False))
+# Algo 5
+strategies.append(MINE_STRATEGY(hash_rate_attack=False, hash_rate_trigger=0, self_mine_factor=0, contest_tip=False))
 
-#Miners
+#%% Initialize - random function
+c.reset()
+print('\n')
+if diff_algo == c.incr():
+    diff_algo = DIFFICULTY_LWMA_00(difficulty_window)
+elif diff_algo == c.incr():
+    diff_algo = DIFFICULTY_LWMA_01_20171206(difficulty_window)
+elif diff_algo == c.incr():
+    diff_algo = DIFFICULTY_LWMA_01_20181127(difficulty_window)
+elif diff_algo == c.incr():
+    diff_algo = DIFFICULTY_TSA_20181108(difficulty_window)
+else:
+    diff_algo = DIFFICULTY_LWMA_00(difficulty_window)
+print('\n')
+
+#%% Initialize - runtime
+# ---- Miners
 miners = []
 for i in range(0, noAlgos):
     hash_rate = HASH_RATE(initial_hash_rate=algos[_HR0][i], profile=hash_rate_profiles[i], \
@@ -866,10 +936,10 @@ for i in range(0, noAlgos):
                         algo_no=i, diff_algo=diff_algo, strategy=strategies[i], hash_rate=hash_rate, \
                         state=state))
 
-#Oracle
+# ---- Oracle
 oracle = ORACLE(state=state)
 
-#For debugging
+# ---- For debugging
 miners_vars = []
 hash_rate_vars =[]
 for i in range(0, noAlgos):
@@ -879,26 +949,41 @@ oracle_vars = vars(oracle)
 state_vars = vars(state)
 
 #%% Blockchain runtime
-#Initial: Adjusting difficulty to achieve target block time
+# ---- Initial difficulty adjustment
+#  (adjusting difficulty to achieve target block time)
 settling_window = int(abs(diff_algo.difficulty_window*1.5*noAlgos))
-print('\nMain: Adjusting difficulty to achieve target block time,', settling_window, 'blocks\n')
+print('----------------------------------------------------------------------')
+print('Main: Adjusting difficulty to achieve target block time,', settling_window, 'blocks')
+print('----------------------------------------------------------------------\n')
 oracle.run(miners=miners, blocks_amount=settling_window, init=True)
-#Scenario starts here
-print('\nMain: Scenario starts, solve', blocksToSolve, 'blocks\n')
+print('----------------------------------------------------------------------')
+# ---- Scenario start
+print('Main: Scenario starts, solve', blocksToSolve, 'blocks')
+print('----------------------------------------------------------------------')
 oracle.run(miners=miners, blocks_amount=blocksToSolve, init=False)
-
+print('\n\n----------------------------------------------------------------------')
+# ---- Scenario end
+print('Main: Scenario ended at block', len(oracle.state.chain), 'and time', oracle.state.system_time)
+print('----------------------------------------------------------------------')
 
 #%% Plot results
+# ---- Input hash rate profile
 fig0, axs0 = plt.subplots(1, noAlgos, figsize=(15, 5))
 fig0.subplots_adjust(hspace=0.3, wspace=0.3)
 for i in range(0, noAlgos):
     x = np.arange(1, len(miners[i].hash_rate.values) + 1)
-    axs0[i].plot(x, miners[i].hash_rate.values)
-    axs0[i].set_title(miners[i].name + ': Applied hash rate after init')
-    axs0[i].grid()
+    if noAlgos < 2:
+        axs0.plot(x, miners[i].hash_rate.values)
+        axs0.set_title(miners[i].name + ': Applied hash rate after init')
+        axs0.grid()
+    else:
+        axs0[i].plot(x, miners[i].hash_rate.values)
+        axs0[i].set_title(miners[i].name + ': Applied hash rate after init')
+        axs0[i].grid()
 
 plt.show()
 
+# ---- Per algo
 fig1, axs1 = plt.subplots(noAlgos, 3, figsize=(15, noAlgos*5))
 fig1.subplots_adjust(hspace=0.3, wspace=0.3)
 for i in range(0, noAlgos):
@@ -911,8 +996,8 @@ for i in range(0, noAlgos):
         axs1[1].plot(x, state.target_difficulties[i], x, state.achieved_difficulties[i])
         axs1[1].set_title(miners[i].name + ': Difficulty')
         axs1[1].grid()
-        x = np.arange(1, len(state.block_times[i]) + 1)
-        axs1[2].plot(x, state.block_times[i])
+        x = np.arange(1, len(state.solve_times[i]) + 1)
+        axs1[2].plot(x, state.solve_times[i])
         axs1[2].set_title(miners[i].name + ': Solve time')
         axs1[2].grid()
     else:
@@ -931,6 +1016,7 @@ for i in range(0, noAlgos):
 
 plt.show()
 
+# ---- System values
 fig2, axs2 = plt.subplots(2, 2, figsize=(15, 10))
 
 y = state.get_block_times()
