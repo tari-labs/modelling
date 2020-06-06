@@ -248,11 +248,11 @@ class RANDOM_FUNC:
 
     def get_value(self, value):
         if self.distribution == 'normal':
-            value = np.random.normal(value*self.rand_down, value*self.randomness, 1)
+            value = np.random.normal(value, value*self.randomness, 1)
         elif self.distribution == 'poisson':
             value = np.random.poisson(value, 1)
         elif self.distribution == 'uniform':
-            value = np.random.uniform(value*self.rand_down, value)
+            value = np.random.uniform(value, value*self.rand_up)
         return value
 
 
@@ -356,17 +356,19 @@ class MINER:
         #Solve time based on ratio between target difficulty and available hash rate
         self.count.reset()
         hash_rate = self.hash_rate.get_hash_rate(block_number, init)
-        while self.count.incr() <= 10:
+        while self.count.incr() <= 50:
             gradient_r = self.rand.get_value(self.gradient)
-            intercept_r = self.rand.get_value(self.intercept)
+            intercept_r = self.intercept #self.rand.get_value(self.intercept)
             solve_time = limit_down((target_difficulty/hash_rate) * gradient_r + intercept_r, 1)
-            achieved_difficulty = target_difficulty + (target_difficulty - ((solve_time - self.intercept) / self.gradient) * \
-                                                       hash_rate)
+#            achieved_difficulty = target_difficulty + (target_difficulty - ((solve_time - self.intercept) / self.gradient) * \
+#                                                       hash_rate)
+            achieved_difficulty = ((solve_time - self.intercept) / self.gradient) * hash_rate
             if achieved_difficulty >= target_difficulty:
                 break
         else:
             achieved_difficulty = target_difficulty
             solve_time = limit_down((target_difficulty/hash_rate) * self.gradient + self.intercept, 1)
+            print('Nominal solve time used at block', block_number, ' for', self.name)
         #Block meta data
         block_hash = self.block_hash.get_next_hash()
         accumulated_difficulty_ = accumulated_difficulty + achieved_difficulty
@@ -835,7 +837,7 @@ elif diff_algo == c.incr():
     print('\n\n ----- Using difficulty algorithm: LWMA-1 version 2018-11-27 -----\n')
 elif diff_algo == c.incr():
     diff_algo = DIFFICULTY_TSA_20181108(difficulty_window)
-    print('\n\n ----- Using difficulty algorithm: LWMA-1 version 2018-11-27 -----\n')
+    print('\n\n ----- Using difficulty algorithm: TSA version 2018-11-08 [(c) 2018 Zawy]-----\n')
 else:
     diff_algo = DIFFICULTY_LWMA_00(difficulty_window)
     print('\n\n ----- Using difficulty algorithm: LWMA Basic -----\n')
