@@ -135,7 +135,7 @@ class DIFFICULTY_LWMA_00:
         for i in range(len(solve_times)-n, len(solve_times)):
             _sum += (solve_times[i] * (i+1))
             denom += (i+1)
-        return avg_diff * (target_time/(_sum/denom))
+        return np.int64(avg_diff * (target_time/(_sum/denom)))
 
 #%% Class: DIFFICULTY_LWMA_01_20171206
 #Linear Weighted Moving Average - Bitcoin & Zcash Clones - 2017-12-06
@@ -160,7 +160,7 @@ class DIFFICULTY_LWMA_01_20171206:
         else:
             avg_D = acc_difficulties[0]
         next_D = (avg_D/(200*L))*(N*(N+1)*T*99) #The original algo uses an if statement here that resolves to the same answer
-        return  next_D
+        return  np.int64(next_D)
 
 #%% Class: DIFFICULTY_LWMA_01_20181127
 #Linear Weighted Moving Average - Bitcoin & Zcash Clones - 2018-11-27
@@ -186,7 +186,7 @@ class DIFFICULTY_LWMA_01_20181127:
         else:
             ave_difficulty = acc_difficulties[0]
         target = ave_difficulty * k / weighted_times
-        return  target
+        return  np.int64(target)
 
 #%% Class: DIFFICULTY_TSA_20181108
 #TSA, Time Stamp Adjustment to Difficulty, Copyright (c) 2018 Zawy, MIT License.
@@ -349,12 +349,13 @@ class MINER:
             raise ERROR('"state" wrong type: ' + str(type(state)))
         else:
             self.state = state
-        self.state.chain.append(self.create_block(self.state.target_difficulties[algo_no][-1], \
-                                                  self.state.achieved_difficulties[algo_no][-1], self.block_hash.get_next_hash(), \
+        self.state.chain.append(self.create_block(self.state.target_difficulties[algo_no][-1],
+                                                  self.state.achieved_difficulties[algo_no][-1], self.block_hash.get_next_hash(),
                                                       algo_no, True))
         #Internal
         self.block_number = -1
         self.selfish_mining_time = 0
+        self.block_number_selfish_mining_start = -1
 
     def create_block(self, target_difficulty, accumulated_difficulty, previous_hash, block_number, init):
         #Solve time based on ratio between target difficulty and available hash rate
@@ -362,68 +363,62 @@ class MINER:
         hash_rate = self.hash_rate.get_hash_rate(block_number, init)
         while self.count.incr() <= 50:
             gradient_r = self.rand.get_value(self.gradient)
-            intercept_r = self.intercept #self.rand.get_value(self.intercept)
-            solve_time = limit_down((target_difficulty/hash_rate) * gradient_r + intercept_r, 1)
-#            achieved_difficulty = target_difficulty + (target_difficulty - ((solve_time - self.intercept) / self.gradient) * \
-#                                                       hash_rate)
-            achieved_difficulty = ((solve_time - self.intercept) / self.gradient) * hash_rate
+            solve_time = limit_down((target_difficulty/hash_rate) * gradient_r + self.intercept, 1)
+            achieved_difficulty = np.ceil(((solve_time - self.intercept) / self.gradient) * hash_rate)
             if achieved_difficulty >= target_difficulty:
                 break
         else:
+            print('Could not attain target difficulty at block', block_number, 'for', self.name)
+            print('                         adjusted solve time', solve_time, 'and achieved_difficulty', achieved_difficulty)
             achieved_difficulty = target_difficulty
             solve_time = limit_down((target_difficulty/hash_rate) * self.gradient + self.intercept, 1)
-            print('Nominal solve time used at block', block_number, ' for', self.name)
+            print('                               to solve time', solve_time, 'and achieved_difficulty', achieved_difficulty)
         #Block meta data
         block_hash = self.block_hash.get_next_hash()
         accumulated_difficulty_ = accumulated_difficulty + achieved_difficulty
-        block = BLOCK(block_number, block_hash, previous_hash, self.algo_no, self.name, target_difficulty, achieved_difficulty, \
+        block = BLOCK(block_number, block_hash, previous_hash, self.algo_no, self.name, target_difficulty, achieved_difficulty,
                       accumulated_difficulty_, hash_rate, solve_time)
         return block
 
     def produce_next_blocks(self, block_number, time_now, init, contest_mode):
-        #Apply mining strategy
+        # Apply mining strategy
         if self.strategy.hash_rate_attack == True and init == False and self.strategy.selfish_mining == False:
             if self.hash_rate.get_hash_rate(block_number, init) >= self.hash_rate.get_hash_rate(block_number-1, init) * \
                 self.strategy.hash_rate_trigger:
                     self.strategy.selfish_mining = True
                     self.strategy.send_blocks = False
                     self.strategy.selfish_mining_start = True
-                    print('\nMiner: ', self.name, ': selfish_mining trigger', \
-                          ', contest_tip', self.strategy.contest_tip, ', hash_rate: (n-1)', \
-                          round(self.hash_rate.get_hash_rate(block_number-1, init)[0], 0), '(n)', \
-                          round(self.hash_rate.get_hash_rate(block_number, init)[0], 0), \
-                          ', block', block_number, ', time_now', time_now)
-        #Produce next blocks
-        # - Normal operation
+                    print('\nMiner: ', self.name, ': selfish_mining trigger', ', contest_tip', self.strategy.contest_tip,
+                          ', hash_rate: (n-1)', round(self.hash_rate.get_hash_rate(block_number-1, init), 0), '(n)',
+                          round(self.hash_rate.get_hash_rate(block_number, init), 0), ', block', block_number, ', time_now',
+                          time_now)
+        # Produce next blocks
+        #  - Normal operation
         if self.strategy.selfish_mining == False and self.block_number < block_number:
             self.blocks.clear()
             blockchain_tip = self.state.chain[-1].block_hash
             target_difficulty = self.diff_algo.adjust_difficulty(self.state.achieved_difficulties[self.algo_no],
-                                                                 self.state.accumulated_difficulties[self.algo_no], \
-                                                                 self.state.solve_times[self.algo_no], self.state.miner_target_time)
-            self.blocks.append(self.create_block(target_difficulty, self.state.accumulated_difficulties[self.algo_no][-1], \
+                                        self.state.accumulated_difficulties[self.algo_no],
+                                        self.state.solve_times[self.algo_no],
+                                        self.state.miner_target_time)
+            self.blocks.append(self.create_block(target_difficulty, self.state.accumulated_difficulties[self.algo_no][-1],
                                                  blockchain_tip, block_number, init))
             self.block_number = block_number
             self.strategy.send_blocks = True
 
-        # - Selfish mining
+        #  - Selfish mining
         elif self.strategy.selfish_mining == True and self.strategy.selfish_mining_start == True:
             self.blocks.clear()
             blockchain_tip = self.state.chain[-1].block_hash
-            # not used: n_ = self.diff_algo.difficulty_window + 5 if len(self.state.solve_times[self.algo_no]) > \
-            # not used:     self.diff_algo.difficulty_window + 5 else len(self.state.solve_times[self.algo_no])
-            # not used: n = len(self.state.solve_times[self.algo_no]) - n_
-            achieved_difficulties = copy.deepcopy(self.state.achieved_difficulties[self.algo_no]) #self.state.achieved_difficulties[self.algo_no][n:]
-            #print('achieved_difficulties:', achieved_difficulties)
-            accumulated_difficulties = copy.deepcopy(self.state.accumulated_difficulties[self.algo_no]) #self.state.accumulated_difficulties[self.algo_no][n:]
-            #print('accumulated_difficulties:', accumulated_difficulties)
-            solve_times = copy.deepcopy(self.state.solve_times[self.algo_no]) #self.state.solve_times[self.algo_no][n:]
-            #print('solve_times:', solve_times)
+            achieved_difficulties = copy.deepcopy(self.state.achieved_difficulties[self.algo_no])
+            accumulated_difficulties = copy.deepcopy(self.state.accumulated_difficulties[self.algo_no])
+            solve_times = copy.deepcopy(self.state.solve_times[self.algo_no])
+            self.block_number_selfish_mining_start = block_number
             block_number_ = block_number
             while len(self.blocks) < self.diff_algo.difficulty_window * self.strategy.self_mine_factor:
-                target_difficulty = self.diff_algo.adjust_difficulty(achieved_difficulties,  accumulated_difficulties, \
+                target_difficulty = self.diff_algo.adjust_difficulty(achieved_difficulties,  accumulated_difficulties,
                                                                      solve_times, self.state.miner_target_time)
-                self.blocks.append(self.create_block(target_difficulty, accumulated_difficulties[-1], blockchain_tip, \
+                self.blocks.append(self.create_block(target_difficulty, accumulated_difficulties[-1], blockchain_tip,
                                                      block_number_, init))
                 blockchain_tip = self.blocks[-1].block_hash
                 achieved_difficulties.append(self.blocks[-1].achieved_difficulty)
@@ -436,15 +431,15 @@ class MINER:
             index = self.state.get_block_index(self.blocks[0].previous_hash)
             self.selfish_mining_time = self.state.chain[index].time_stamp + sum([x.solve_time for x in self.blocks])
             self.strategy.selfish_mining_start = False
-            print('Miner: ', self.name, ':', 'selfish_mining', len(self.blocks), 'blocks, wait till', \
+            print('Miner: ', self.name, ':', 'selfish_mining', len(self.blocks), 'blocks, wait till',
                   self.selfish_mining_time, 'to send blocks')
 
         # Wait for system time to catch up with accumulated selfish mining time, then set flag to send blocks array to oracle
         if self.strategy.selfish_mining == True:
-            if time_now >= self.selfish_mining_time: # and contest_mode == True:
+            if time_now >= self.selfish_mining_time and contest_mode == True:
                 self.strategy.send_blocks = True
 
-        #Send block(s) to oracle
+        # Send block(s) to oracle
         if self.strategy.selfish_mining == False: # and self.strategy.contest_tip == False:
             if self.strategy.send_blocks == True:
                 self.strategy.send_blocks = False
@@ -453,7 +448,8 @@ class MINER:
                 return []
         elif self.strategy.selfish_mining == True:
             if self.strategy.send_blocks == True:
-                print('Miner: ', self.name, ':', 'selfish_mining, sending', len(self.blocks), 'blocks after', block_number-self.block_number, 'blocks, time_now', time_now)
+                print('Miner: ', self.name, ':', 'selfish_mining, sending', len(self.blocks), 'blocks after',
+                      block_number-self.block_number_selfish_mining_start, 'blocks, time_now', time_now)
                 self.strategy.selfish_mining = False
                 self.strategy.send_blocks = False
                 self.block_number = -1
@@ -690,12 +686,14 @@ class ORACLE():
     def run(self, miners, blocks_amount, init):
         self.min_time = []
         blocks_requested = blocks_amount if init == True else blocks_amount + self.init_blocks_count
-        while len(self.state.chain) < blocks_requested:
+        cut_off_time = blocks_requested * self.state.blockchain_target_time * 1.1
+        while len(self.state.chain) < blocks_requested and self.state.system_time < cut_off_time:
             block_number = int(self.state.chain[-1].block_number) + 1
             # Get blocks for current round (no re-orgs)
             blocks = [[] for k in range(self.state.noAlgos)]
             time = [[],[], []]
-            #print('\nOracle: Get blocks for current round (no re-orgs), block number', block_number)
+            #print('\nOracle: Get blocks for current round (no re-orgs), block number', block_number, ', time',
+            #      self.state.system_time)
             for j in range(0, len(miners)):
                 blocks[j] = miners[j].produce_next_blocks(block_number, self.state.system_time, init, contest_mode=False)
                 #Log individual solve times for valid blocks
@@ -721,7 +719,7 @@ class ORACLE():
                 #       blocks[algo][-1].name)
             else:
                 algo = -1
-                self.state.system_time = self.state.chain[-1].time_stamp + self.state.blockchain_target_time
+                self.state.system_time += self.state.blockchain_target_time
             #if len(time[0]) != self.state.noAlgos:
             #    print('\nOracle: solve times', time[2], time[1], 'system_time', self.state.system_time, ', block number', \
             #          block_number)
@@ -791,7 +789,7 @@ algos = list(map(list, zip(*algos))) #data into row-column format
 # ---- Read config file
 blocksToSolve = noAlgos = diff_algo = targetBT = difficulty_window = randomness_miner = dist_miner = randomness_hash_rate = \
     dist_hash_rate = ''
-config_file = os.getcwd() + os.path.sep + "my_inputs_b.txt"
+config_file = os.getcwd() + os.path.sep + "multi_pow_inputs.txt"
 config_file_start_id = ">>>> Gtd$K46U%JN*X#Vd2 >>>>"
 config_file_end_id = "<<<< Gtd$K46U%JN*X#Vd2 <<<<"
 if os.path.isfile(config_file):
@@ -866,6 +864,15 @@ elif profile[c.val()] == 3:
                                [[250, 1800], [2.5, 1.75]], \
                                [[1800, limit_down(blocksToSolve, 1800)], [1.0, 1.0]]])
 elif profile[c.val()] == 4:
+    hash_rate_profiles.append([[[1, 250], [2.0, 2.0]], \
+                               [[250, 500], [1.0, 1.0]], \
+                               [[500, 750], [2.0, 2.0]], \
+                               [[750, 1000], [1.0, 1.0]], \
+                               [[1000, 1250], [2.0, 2.0]], \
+                               [[1250, 1500], [1.0, 1.0]], \
+                               [[1500, 1750], [2.0, 2.0]], \
+                               [[1750, limit_down(blocksToSolve, 1800)], [1.0, 1.0]]])
+elif profile[c.val()] == 4:
     hash_rate_profiles.append([[[1, 250], [2.5, 2.5]], \
                                [[250, 500], [1.0, 1.0]], \
                                [[500, 750], [2.5, 2.5]], \
@@ -900,7 +907,8 @@ if len(state.chain) > 0:
 #  contest_tip: TODO
 strategies = []
 # Algo 1
-strategies.append(MINE_STRATEGY(hash_rate_attack=True, hash_rate_trigger=1.5, self_mine_factor=10.0, contest_tip=False))
+smf = 15.0/difficulty_window
+strategies.append(MINE_STRATEGY(hash_rate_attack=True, hash_rate_trigger=1.5, self_mine_factor=smf, contest_tip=False))
 # Algo 2
 strategies.append(MINE_STRATEGY(hash_rate_attack=False, hash_rate_trigger=0, self_mine_factor=0, contest_tip=False))
 # Algo 3
