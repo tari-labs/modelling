@@ -436,7 +436,7 @@ class MINER:
 
         # Wait for system time to catch up with accumulated selfish mining time, then set flag to send blocks array to oracle
         if self.strategy.selfish_mining == True:
-            if time_now >= self.selfish_mining_time and contest_mode == True:
+            if t4ime_now >= self.selfish_mining_time and contest_mode == True:
                 self.strategy.send_blocks = True
 
         # Send block(s) to oracle
@@ -775,7 +775,7 @@ _DF0 = c.incr() #Initial difficulty
 _BT0 = c.incr() #Target block time
 
 # ---- Mining algorithm
-#Mining algorithm choices (as per '../other/multi_pow_algos_approximation.*')
+#Mining algorithm choices (as per './multi_pow_algos_approximation.*')
 algos = []
 algos.append(['Algo 1', 119.12, 0.8809, 1000, 1])
 algos.append(['Algo 2', 148.94, 0.8511, 10000, 10])
