@@ -407,8 +407,6 @@ class MINER:
                                         self.state.accumulated_difficulties[self.algo_no],
                                         self.state.solve_times[self.algo_no], self.state.miner_target_time,
                                         time_now, previous_time_stamp)
-                                        self.state.solve_times[self.algo_no],
-                                        self.state.miner_target_time)
             self.blocks.append(self.create_block(target_difficulty, self.state.accumulated_difficulties[self.algo_no][-1],
                                                  blockchain_tip, block_number, init))
             self.block_number = block_number
