@@ -867,7 +867,7 @@ with open(config_file,"w+") as f:
 
 #%% Initialize - set hash rate profiles
 # ---- Profile selection
-profile = [4, 1, 1, 1, 1]
+profile = [4, 2, 2, 1, 1]
 c.reset()
 hash_rate_profiles = []
 # ---- Algo 1 hash rate profile
@@ -890,21 +890,43 @@ elif profile[c.val()] == 4:
                                [[1250, 1500], [1.0, 1.0]], \
                                [[1500, 1750], [2.0, 2.0]], \
                                [[1750, limit_down(blocksToSolve, 1800)], [1.0, 1.0]]])
-elif profile[c.val()] == 4:
-    hash_rate_profiles.append([[[1, 250], [2.5, 2.5]], \
+elif profile[c.val()] == 5:
+    hash_rate_profiles.append([[[1, 250], [2.0, 2.0]], \
                                [[250, 500], [1.0, 1.0]], \
-                               [[500, 750], [2.5, 2.5]], \
+                               [[500, 750], [3.0, 3.0]], \
                                [[750, 1000], [1.0, 1.0]], \
-                               [[1000, 1250], [2.5, 2.5]], \
+                               [[1000, 1250], [4.0, 4.0]], \
                                [[1250, 1500], [1.0, 1.0]], \
-                               [[1500, 1750], [2.5, 2.5]], \
-                               [[1750, limit_down(blocksToSolve, 1800)], [1.0, 1.0]]])
+                               [[1500, 1750], [5.0, 5.0]], \
+                               [[1750, 4000], [5.0, 1.0]], \
+                               [[4000, limit_down(blocksToSolve, 4200)], [1.0, 1.0]]])
+elif profile[c.val()] == 6:
+    hash_rate_profiles.append([[[1, 1000], [1.0, 1.5]], \
+                               [[1000, 1250], [1.5, 1.5]], \
+                               [[1250, 2250], [1.5, 1.0]], \
+                               [[2250, limit_down(blocksToSolve, 2300)], [1.0, 1.0]]])
 # ---- Algo 2 hash rate profile
 if profile[c.incr()] == 1:
     hash_rate_profiles.append([[[0, blocksToSolve], [1, 1]]])
+elif profile[c.val()] == 2:
+    hash_rate_profiles.append([[[1, 250], [1.0, 1.0]], \
+                               [[250, 500], [2.0, 2.0]], \
+                               [[500, 750], [1.0, 1.0]], \
+                               [[750, 1000], [2.0, 2.0]], \
+                               [[1000, 1250], [1.0, 1.0]], \
+                               [[1250, 1500], [2.0, 2.0]], \
+                               [[1500, 1750], [1.0, 1.0]], \
+                               [[1750, limit_down(blocksToSolve, 1800)], [1.0, 1.0]]])
 # ---- Algo 3 hash rate profile
 if profile[c.incr()] == 1:
     hash_rate_profiles.append([[[0, blocksToSolve], [1, 1]]])
+elif profile[c.val()] == 2:
+    hash_rate_profiles.append([[[1, 400], [1.0, 1.0]], \
+                               [[400, 800], [0.5, 0.5]], \
+                               [[800, 1200], [1.0, 1.0]], \
+                               [[1200, 1600], [0.5, 0.5]], \
+                               [[1600, 2000], [1.0, 1.0]], \
+                               [[2000, limit_down(blocksToSolve, 1800)], [1.0, 1.0]]])
 # ---- Algo 4 hash rate profile
 if profile[c.incr()] == 1:
     hash_rate_profiles.append([[[0, blocksToSolve], [1, 1]]])
@@ -926,7 +948,7 @@ if len(state.chain) > 0:
 strategies = []
 # Algo 1
 smf = 15.0/difficulty_window
-strategies.append(MINE_STRATEGY(hash_rate_attack=True, hash_rate_trigger=1.5, self_mine_factor=smf, contest_tip=False))
+strategies.append(MINE_STRATEGY(hash_rate_attack=False, hash_rate_trigger=1.5, self_mine_factor=smf, contest_tip=False))
 # Algo 2
 strategies.append(MINE_STRATEGY(hash_rate_attack=False, hash_rate_trigger=0, self_mine_factor=0, contest_tip=False))
 # Algo 3
