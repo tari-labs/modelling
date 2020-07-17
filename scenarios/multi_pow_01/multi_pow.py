@@ -559,9 +559,11 @@ class BLOCKCHAIN_STATE(BLOCKCHAIN_STATE_BORG):
                 self.hash_rates[i].append(initial_hash_rates[i])
                 self.blocks[i].append(0)
 
-    def reset(self, noAlgos, initial_difficulties, initial_block_time, initial_hash_rates):
+    def reset(self, noAlgos, initial_difficulties, initial_block_time, initial_hash_rates, blockchain_target_time, \
+              target_time_profile):
         BLOCKCHAIN_STATE.__instance = None
-        BLOCKCHAIN_STATE(noAlgos, initial_difficulties, initial_block_time, initial_hash_rates)
+        BLOCKCHAIN_STATE(noAlgos, initial_difficulties, initial_block_time, initial_hash_rates, blockchain_target_time, \
+              target_time_profile)
         return
 
     def get_geometric_mean_data(self, block):
@@ -869,15 +871,15 @@ with open(config_file,"w+") as f:
 
 #%% Initialize - set hash rate profiles
 # ---- Profile selection
-profile = [1, 1, 1, 1, 1]
+profile = [2, 1, 1, 1, 1]
 c.reset()
 hash_rate_profiles = []
 # ---- Algo 1 hash rate profile
 if profile[c.incr()] == 1:
     hash_rate_profiles.append([[[0, blocksToSolve], [1, 1]]])
 elif profile[c.val()] == 2:
-    hash_rate_profiles.append([[[50, 250], [2.5, 2.5]], \
-                               [[250, 1800], [2.5, 1.0]], \
+    hash_rate_profiles.append([[[50, 250], [10.0, 10.0]], \
+                               [[250, 1800], [10.0, 1.0]], \
                                [[1800, limit_down(blocksToSolve, 1800)], [1.0, 1.0]]])
 elif profile[c.val()] == 3:
     hash_rate_profiles.append([[[50, 250], [2.5, 2.5]], \
@@ -936,16 +938,6 @@ if profile[c.incr()] == 1:
 if profile[c.incr()] == 1:
     hash_rate_profiles.append([[[0, blocksToSolve], [1, 1]]])
 
-#%% Initialize - blockchain state
-#  (shared among all miners and oracle)
-#targetBT_profile = [0.9985, 1.0015, 1.0, 1.0, 1.0] # Smooth 0.5% randomness
-#targetBT_profile = [0.992, 1.008, 1.0, 1.0, 1.0] # 10% randomness
-targetBT_profile = [0.9, 1.1, 1.0, 1.0, 1.0] # Smooth 0.5% randomness
-state = BLOCKCHAIN_STATE(noAlgos=noAlgos, initial_difficulties=algos[_DF0], initial_block_time=1, \
-                         initial_hash_rates=algos[_HR0], blockchain_target_time=targetBT, target_time_profile=targetBT_profile)
-if len(state.chain) > 0:
-    state.reset(noAlgos=noAlgos, initial_difficulties=algos[_DF0], initial_block_time=1, initial_hash_rates=algos[_HR0])
-
 #%% Initialize - set mining strategies
 #  hash_rate_trigger: start selfish mining when hash rate increase by this this factor
 #  self_mine_factor: determines the amount of blocks to selfish mine as a factor of the difficulty_window
@@ -978,143 +970,188 @@ else:
     diff_algo = DIFFICULTY_LWMA_00(difficulty_window)
 print('\n')
 
+#%% Initialize - blocks distribution settings
+do_distribution_calc = False
+distribution = []
+if do_distribution_calc == True:
+    distribution_factor = [0.4, 0.2, 0.1, 0.05, 0.025, 0.0125, 0.01, 0.009, 0.008, 0.007, 0.006, 0.005, 0.004, 0.003, 0.002, 0.001]
+else:
+    distribution_factor = [0.0]
+
+for df in distribution_factor:
+    if do_distribution_calc == True:
+        targetBT_profile = [1.0 - df, 1.0 + df, 1.0, 1.0, 1.0] # For distribution calc
+    else:
+        targetBT_profile = [1.0, 1.0, 1.0, 1.0, 1.0] # Even blocks distribution
+        #targetBT_profile = [0.9985, 1.0015, 1.0, 1.0, 1.0] # Smooth 0.5% randomness, 60/40 split for 2x algos
+        #targetBT_profile = [0.992, 1.008, 1.0, 1.0, 1.0] # With 10% randomness, 60/40 split for 2x algos
+
+#%% Initialize - blockchain state
+#  (shared among all miners and oracle)
+
+    state = BLOCKCHAIN_STATE(noAlgos=noAlgos, initial_difficulties=algos[_DF0], initial_block_time=1, \
+                         initial_hash_rates=algos[_HR0], blockchain_target_time=targetBT, target_time_profile=targetBT_profile)
+    if len(state.chain) > 0:
+        state.reset(noAlgos=noAlgos, initial_difficulties=algos[_DF0], initial_block_time=1, initial_hash_rates=algos[_HR0], \
+                    blockchain_target_time=targetBT, target_time_profile=targetBT_profile)
+
 #%% Initialize - runtime
 # ---- Miners
-miners = []
-for i in range(0, noAlgos):
-    hash_rate = HASH_RATE(initial_hash_rate=algos[_HR0][i], profile=hash_rate_profiles[i], \
-                          randomness=randomness_hash_rate, dist=get_distribution_text(dist_hash_rate), name=algos[_NAM][i])
-    miners.append(MINER(randomness_miner=randomness_miner, dist=get_distribution_text(dist_miner), initial_difficulty=algos[_DF0][i], \
-                        gradient=algos[_GRA][i], intercept=algos[_INT][i], name=algos[_NAM][i], algo_no=i, diff_algo=diff_algo, \
-                        strategy=strategies[i], hash_rate=hash_rate, state=state))
+    miners = []
+    for i in range(0, noAlgos):
+        hash_rate = HASH_RATE(initial_hash_rate=algos[_HR0][i], profile=hash_rate_profiles[i], \
+                              randomness=randomness_hash_rate, dist=get_distribution_text(dist_hash_rate), name=algos[_NAM][i])
+        miners.append(MINER(randomness_miner=randomness_miner, dist=get_distribution_text(dist_miner), \
+                            initial_difficulty=algos[_DF0][i], gradient=algos[_GRA][i], intercept=algos[_INT][i], \
+                            name=algos[_NAM][i], algo_no=i, diff_algo=diff_algo, strategy=strategies[i], hash_rate=hash_rate, \
+                            state=state))
 
 # ---- Oracle
-oracle = ORACLE(state=state)
+    oracle = ORACLE(state=state)
 
 # ---- For debugging
-miners_vars = []
-hash_rate_vars =[]
-for i in range(0, noAlgos):
-    miners_vars.append(vars(miners[i]))
-    hash_rate_vars.append(vars(miners[i].hash_rate))
-oracle_vars = vars(oracle)
-state_vars = vars(state)
+    miners_vars = []
+    hash_rate_vars =[]
+    for i in range(0, noAlgos):
+        miners_vars.append(vars(miners[i]))
+        hash_rate_vars.append(vars(miners[i].hash_rate))
+        oracle_vars = vars(oracle)
+        state_vars = vars(state)
 
 #%% Blockchain runtime
 # ---- Initial difficulty adjustment
 #  (adjusting difficulty to achieve target block time)
-settling_window = int(abs(diff_algo.difficulty_window*1.5*noAlgos))
-print('----------------------------------------------------------------------')
-print('Main: Adjusting difficulty to achieve target block time,', settling_window, 'blocks')
-print('----------------------------------------------------------------------\n')
-oracle.run(miners=miners, blocks_amount=settling_window, init=True)
-print('----------------------------------------------------------------------')
+    settling_window = int(abs(diff_algo.difficulty_window*1.5*noAlgos))
+    print('----------------------------------------------------------------------')
+    print('Main: Adjusting difficulty to achieve target block time,', settling_window, 'blocks')
+    print('----------------------------------------------------------------------\n')
+    oracle.run(miners=miners, blocks_amount=settling_window, init=True)
+    print('----------------------------------------------------------------------')
 # ---- Scenario start
-print('Main: Scenario starts, solve', blocksToSolve, 'blocks')
-print('----------------------------------------------------------------------')
-oracle.run(miners=miners, blocks_amount=blocksToSolve, init=False)
-print('\n\n----------------------------------------------------------------------')
+    print('Main: Scenario starts, solve', blocksToSolve, 'blocks')
+    print('----------------------------------------------------------------------')
+    oracle.run(miners=miners, blocks_amount=blocksToSolve, init=False)
+    print('\n\n----------------------------------------------------------------------')
 # ---- Scenario end
-print('Main: Scenario ended at block', len(oracle.state.chain), 'and time', oracle.state.system_time)
-print('----------------------------------------------------------------------')
+    print('Main: Scenario ended at block', len(oracle.state.chain), 'and time', oracle.state.system_time)
+    print('----------------------------------------------------------------------')
 
 #%% Plot results
 # ---- Input hash rate profile
-fig0, axs0 = plt.subplots(1, noAlgos, figsize=(15, 5))
-fig0.subplots_adjust(hspace=0.3, wspace=0.3)
-for i in range(0, noAlgos):
-    x = np.arange(1, len(miners[i].hash_rate.values) + 1)
-    if noAlgos < 2:
-        axs0.plot(x, miners[i].hash_rate.values)
-        axs0.set_title(miners[i].name + ': Applied hash rate after init')
-        axs0.grid()
-        axs0.set_xlabel('block #')
-    else:
-        axs0[i].plot(x, miners[i].hash_rate.values)
-        axs0[i].set_title(miners[i].name + ': Applied hash rate after init')
-        axs0[i].set_xlabel('block #')
-        axs0[i].grid()
+    fig0, axs0 = plt.subplots(1, noAlgos, figsize=(15, 5))
+    fig0.subplots_adjust(hspace=0.3, wspace=0.3)
+    for i in range(0, noAlgos):
+        x = np.arange(1, len(miners[i].hash_rate.values) + 1)
+        if noAlgos < 2:
+            axs0.plot(x, miners[i].hash_rate.values)
+            axs0.set_title(miners[i].name + ': Applied hash rate after init')
+            axs0.grid()
+            axs0.set_xlabel('block #')
+        else:
+            axs0[i].plot(x, miners[i].hash_rate.values)
+            axs0[i].set_title(miners[i].name + ': Applied hash rate after init')
+            axs0[i].set_xlabel('block #')
+            axs0[i].grid()
 
-plt.show()
+    plt.show()
 
 # ---- Per algo
-fig1, axs1 = plt.subplots(noAlgos, 3, figsize=(15, noAlgos*5))
-fig1.subplots_adjust(hspace=0.3, wspace=0.3)
-for i in range(0, noAlgos):
-    if noAlgos < 2:
-        axs1[0].plot(state.blocks[i], state.hash_rates[i], marker='.', linewidth=1)
-        axs1[0].set_title(miners[i].name + ': Hash rate')
-        axs1[0].grid()
-        axs1[0].set_xlabel('block #')
-        axs1[1].plot(state.blocks[i], state.target_difficulties[i], marker='.', linewidth=1)
-        axs1[1].plot(state.blocks[i], state.achieved_difficulties[i], marker='.', linewidth=1)
-        axs1[1].set_title(miners[i].name + ': Difficulty')
-        axs1[1].grid()
-        axs1[1].set_xlabel('block #')
-        axs1[2].plot(state.blocks[i], state.solve_times[i], marker='.', linewidth=1)
-        axs1[2].set_title(miners[i].name + ': Solve time')
-        axs1[2].grid()
-        axs1[2].set_xlabel('block #')
-    else:
-        axs1[i, 0].plot(state.blocks[i], state.hash_rates[i], marker='.', linewidth=1)
-        axs1[i, 0].set_title(miners[i].name + ': Hash rate')
-        axs1[i, 0].grid()
-        axs1[i, 0].set_xlabel('block #')
-        axs1[i, 1].plot(state.blocks[i], state.target_difficulties[i], marker='.', linewidth=1)
-        axs1[i, 1].plot(state.blocks[i], state.achieved_difficulties[i], marker='.', linewidth=1)
-        axs1[i, 1].set_title(miners[i].name + ': Difficulty')
-        axs1[i, 1].grid()
-        axs1[i, 1].set_xlabel('block #')
-        axs1[i, 2].plot(state.blocks[i], state.solve_times[i], marker='.', linewidth=1)
-        axs1[i, 2].set_title(miners[i].name + ': Solve time')
-        axs1[i, 2].grid()
-        axs1[i, 2].set_xlabel('block #')
+    fig1, axs1 = plt.subplots(noAlgos, 3, figsize=(15, noAlgos*5))
+    fig1.subplots_adjust(hspace=0.3, wspace=0.3)
+    for i in range(0, noAlgos):
+        if noAlgos < 2:
+            axs1[0].plot(state.blocks[i], state.hash_rates[i], marker='.', linewidth=1)
+            axs1[0].set_title(miners[i].name + ': Hash rate')
+            axs1[0].grid()
+            axs1[0].set_xlabel('block #')
+            axs1[1].plot(state.blocks[i], state.target_difficulties[i], marker='.', linewidth=1)
+            axs1[1].plot(state.blocks[i], state.achieved_difficulties[i], marker='.', linewidth=1)
+            axs1[1].set_title(miners[i].name + ': Difficulty')
+            axs1[1].grid()
+            axs1[1].set_xlabel('block #')
+            axs1[2].plot(state.blocks[i], state.solve_times[i], marker='.', linewidth=1)
+            axs1[2].set_title(miners[i].name + ': Solve time')
+            axs1[2].grid()
+            axs1[2].set_xlabel('block #')
+        else:
+            axs1[i, 0].plot(state.blocks[i], state.hash_rates[i], marker='.', linewidth=1)
+            axs1[i, 0].set_title(miners[i].name + ': Hash rate')
+            axs1[i, 0].grid()
+            axs1[i, 0].set_xlabel('block #')
+            axs1[i, 1].plot(state.blocks[i], state.target_difficulties[i], marker='.', linewidth=1)
+            axs1[i, 1].plot(state.blocks[i], state.achieved_difficulties[i], marker='.', linewidth=1)
+            axs1[i, 1].set_title(miners[i].name + ': Difficulty')
+            axs1[i, 1].grid()
+            axs1[i, 1].set_xlabel('block #')
+            axs1[i, 2].plot(state.blocks[i], state.solve_times[i], marker='.', linewidth=1)
+            axs1[i, 2].set_title(miners[i].name + ': Solve time')
+            axs1[i, 2].grid()
+            axs1[i, 2].set_xlabel('block #')
 
-plt.show()
+    plt.show()
 
 # ---- System values
-fig2, axs2 = plt.subplots(2, 2, figsize=(15, 10))
+    fig2, axs2 = plt.subplots(2, 2, figsize=(15, 10))
 
-y = state.get_block_times()
-x = np.arange(1, len(y) + 1)
-axs2[0, 0].plot(x, y)
-axs2[0, 0].set_title('Blockchain: Block times (estimated)')
-axs2[0, 0].grid()
-axs2[0, 0].set_xlabel('block #')
+    y = state.get_block_times()
+    x = np.arange(1, len(y) + 1)
+    axs2[0, 0].plot(x, y)
+    axs2[0, 0].set_title('Blockchain: Block times (estimated)')
+    axs2[0, 0].grid()
+    axs2[0, 0].set_xlabel('block #')
 
-y = state.get_geometric_mean()
-x = np.arange(1, len(y) + 1)
-axs2[0, 1].plot(x, y)
-axs2[0, 1].set_title('Blockchain: Geometric mean of accumulated difficulties')
-axs2[0, 1].grid()
-axs2[0, 1].set_xlabel('block #')
+    y = state.get_geometric_mean()
+    x = np.arange(1, len(y) + 1)
+    axs2[0, 1].plot(x, y)
+    axs2[0, 1].set_title('Blockchain: Geometric mean of accumulated difficulties')
+    axs2[0, 1].grid()
+    axs2[0, 1].set_xlabel('block #')
 
-y = state.get_algo()
-y = [y[i]+1 for i in range(len(y))] #Add 1 to let index coresspond to name
-x = np.arange(1, len(y) + 1)
-axs2[1, 0].plot(x, y, marker='.', ls='')
-axs2[1, 0].set_title('Blockchain: Algo')
-axs2[1, 0].grid()
-axs2[1, 0].set_xlabel('block #')
-for i in range(1, noAlgos + 1):
-    if i == noAlgos:
-        y_text = i * 0.95
-    else:
-        y_text = i * 1.03
-    axs2[1, 0].text(x[round(len(y)/2)], y_text, r'(' + str(y.count(i)) + ' - ' + str(round(y.count(i)/len(y)*100,1)) + '%)')
+    y = state.get_algo()
+    y = [y[i]+1 for i in range(len(y))] #Add 1 to let index coresspond to name
+    x = np.arange(1, len(y) + 1)
+    axs2[1, 0].plot(x, y, marker='.', ls='')
+    axs2[1, 0].set_title('Blockchain: Algo')
+    axs2[1, 0].grid()
+    axs2[1, 0].set_xlabel('block #')
+    distribution.append([df, []])
+    for i in range(1, noAlgos + 1):
+        distribution[-1][1].append([targetBT_profile[i-1], y.count(i), round(y.count(i)/len(y)*100,1)])
+        if i == noAlgos:
+            y_text = i * 0.95
+        else:
+            y_text = i * 1.03
+        axs2[1, 0].text(x[round(len(y)/3)], y_text, r'(Factor: ' + str(distribution[-1][1][-1][0]) + ', ' +\
+                        str(distribution[-1][1][-1][1]) + ' blocks, ' + \
+                        str(distribution[-1][1][-1][2]) + '%)')
 
-repeats = state.count_repeats()
-axs2[1, 1].plot(repeats[0], repeats[2], marker='.', ls='')
-axs2[1, 1].set_title('Blockchain: Repeats')
-axs2[1, 1].grid()
-axs2[1, 1].set_xlabel('block #')
-y_max = get_indexes_max_n_values(repeats[2], count=5)
-for i in range(0, len(y_max)):
-    axs2[1, 1].text(repeats[0][y_max[i]] - repeats[0][-1]/20, \
-        repeats[2][y_max[i]] - max(repeats[2])/15, \
-        r'(' + str(miners[repeats[1][y_max[i]]].name) + ')')
+    repeats = state.count_repeats()
+    axs2[1, 1].plot(repeats[0], repeats[2], marker='.', ls='')
+    axs2[1, 1].set_title('Blockchain: Repeats')
+    axs2[1, 1].grid()
+    axs2[1, 1].set_xlabel('block #')
+    y_max = get_indexes_max_n_values(repeats[2], count=5)
+    for i in range(0, len(y_max)):
+        axs2[1, 1].text(repeats[0][y_max[i]] - repeats[0][-1]/20, \
+                        repeats[2][y_max[i]] - max(repeats[2])/15, \
+                            r'(' + str(miners[repeats[1][y_max[i]]].name) + ')')
 
-plt.show()
+    plt.show()
+
+#%% Blocks distribution
+if len(distribution) > 1:
+    print('\nBlock distribution')
+    print('------------------\n')
+    for dist in distribution:
+        print('Factor: ', dist[0])
+        for i in range(0, noAlgos):
+            print('  - Target time adjust:', dist[1][i][0], ', ', dist[1][i][1], 'blocks, ', dist[1][i][2], '%')
+
+    fig3, axs3 = plt.subplots(1, 1, figsize=(10, 5))
+    x = [e[0] for e in distribution]
+    for i in range(0, noAlgos):
+        y = [e[1][i][2] for e in distribution]
+        axs3.plot(x, y)
 
 #%% ToDo
 # Implement contest_tip
