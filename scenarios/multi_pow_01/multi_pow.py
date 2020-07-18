@@ -332,6 +332,8 @@ class MINER:
         self.intercept = intercept
         self.name = name
         self.algo_no = algo_no
+        self.min_solve_time = state.miner_target_time[algo_no] / 10 # This is just a guess, used if the algo lags
+        self.new_block_overhead_time = state.miner_target_time[algo_no] / 100 # This is just a guess, used if a cycle is skipped
         if str(type(diff_algo)) != "<class '__main__.DIFFICULTY_LWMA_00'>" and \
             str(type(diff_algo)) != "<class '__main__.DIFFICULTY_LWMA_01_20171206'>" and \
             str(type(diff_algo)) != "<class '__main__.DIFFICULTY_LWMA_01_20181127'>" and \
@@ -356,13 +358,14 @@ class MINER:
             self.state = state
         self.state.chain.append(self.create_block(self.state.target_difficulties[algo_no][-1],
                                                   self.state.achieved_difficulties[algo_no][-1], self.block_hash.get_next_hash(),
-                                                      algo_no, True))
+                                                  0, 0, algo_no, True))
         #Internal
         self.block_number = -1
         self.selfish_mining_time = 0
         self.block_number_selfish_mining_start = -1
 
-    def create_block(self, target_difficulty, accumulated_difficulty, previous_hash, block_number, init):
+    def create_block(self, target_difficulty, accumulated_difficulty, previous_hash, time_now, previous_time_stamp, \
+                     block_number, init):
         #Solve time based on ratio between target difficulty and available hash rate
         self.count.reset()
         hash_rate = self.hash_rate.get_hash_rate(block_number, init)
@@ -378,11 +381,23 @@ class MINER:
             achieved_difficulty = target_difficulty
             solve_time = limit_down((target_difficulty/hash_rate) * self.gradient + self.intercept, 1)
             print('                               to solve time', solve_time, 'and achieved_difficulty', achieved_difficulty)
+        # - Add overhead time if an algo lagged to simulate discarding the current block for the new block to solve
+        if len(self.state.chain) > 0:
+            if self.algo_no != self.state.chain[-1].algo:
+                solve_time = solve_time + self.new_block_overhead_time
+        #Compensate for the time warp due to difference in oracle's "time now" and this algo's "previous time stamp"
+        #     This solution is based on the average time it takes to produce a block, thus not random based
+        #     'delta_time' will be used to increment the oracle's time
+        #     'delta_time' should thus continue from this algo's previous time stamp, not from the time another algo produced
+        #     a block, i.e. the oracle's time
+        # - The time lag will be subtracted from the solve time to simulate probability of solving the block in a longer time
+        lag = max((time_now - previous_time_stamp) - self.state.miner_target_time[self.algo_no], 0)
+        delta_time = max(self.min_solve_time, solve_time - lag)
         #Block meta data
         block_hash = self.block_hash.get_next_hash()
         accumulated_difficulty_ = accumulated_difficulty + achieved_difficulty
         block = BLOCK(block_number, block_hash, previous_hash, self.algo_no, self.name, target_difficulty, achieved_difficulty,
-                      accumulated_difficulty_, hash_rate, solve_time)
+                      accumulated_difficulty_, hash_rate, delta_time, solve_time)
         return block
 
     def produce_next_blocks(self, block_number, time_now, init, contest_mode):
@@ -408,7 +423,7 @@ class MINER:
                                         self.state.solve_times[self.algo_no], self.state.miner_target_time[self.algo_no],
                                         time_now, previous_time_stamp)
             self.blocks.append(self.create_block(target_difficulty, self.state.accumulated_difficulties[self.algo_no][-1],
-                                                 blockchain_tip, block_number, init))
+                                                 blockchain_tip, time_now, previous_time_stamp, block_number, init))
             self.block_number = block_number
             self.strategy.send_blocks = True
 
@@ -427,7 +442,7 @@ class MINER:
                                                                      solve_times, self.state.miner_target_time[self.algo_no],
                                                                      time_now_, previous_time_stamp)
                 self.blocks.append(self.create_block(target_difficulty, accumulated_difficulties[-1], blockchain_tip,
-                                                     block_number_, init))
+                                                     time_now, previous_time_stamp, block_number_, init))
                 blockchain_tip = self.blocks[-1].block_hash
                 achieved_difficulties.append(self.blocks[-1].achieved_difficulty)
                 accumulated_difficulties.append(self.blocks[-1].accumulated_difficulty)
@@ -501,12 +516,13 @@ class BLOCK_HASH(BLOCK_HASH_BORG):
 #%% Class: BLOCK
 class BLOCK:
     def __init__(self, block_number, block_hash, previous_hash, algo, name, target_difficulty, achieved_difficulty, \
-                 accumulated_difficulty, hash_rate, solve_time):
+                 accumulated_difficulty, hash_rate, delta_time, solve_time):
         self.algo = int(algo)
         self.name = str(name)
         self.target_difficulty = target_difficulty
         self.achieved_difficulty = float(achieved_difficulty)
         self.accumulated_difficulty = float(accumulated_difficulty)
+        self.delta_time = round(float(delta_time), 1)
         self.solve_time = round(float(solve_time), 1)
         self.hash_rate = float(hash_rate)
         self.block_number = np.uint64(block_number)
@@ -544,6 +560,7 @@ class BLOCKCHAIN_STATE(BLOCKCHAIN_STATE_BORG):
             self.target_difficulties = [[] for i in range(self.noAlgos)]
             self.achieved_difficulties = [[] for i in range(self.noAlgos)]
             self.accumulated_difficulties = [[] for i in range(self.noAlgos)]
+            self.delta_solve_times = [[] for i in range(self.noAlgos)]
             self.solve_times = [[] for i in range(self.noAlgos)]
             self.hash_rates = [[] for i in range(self.noAlgos)]
             self.blocks = [[] for i in range(self.noAlgos)]
@@ -555,6 +572,7 @@ class BLOCKCHAIN_STATE(BLOCKCHAIN_STATE_BORG):
                 self.target_difficulties[i].append(initial_difficulties[i])
                 self.achieved_difficulties[i].append(initial_difficulties[i])
                 self.accumulated_difficulties[i].append(initial_difficulties[i])
+                self.delta_solve_times[i].append(initial_block_time)
                 self.solve_times[i].append(initial_block_time)
                 self.hash_rates[i].append(initial_hash_rates[i])
                 self.blocks[i].append(0)
@@ -596,6 +614,7 @@ class BLOCKCHAIN_STATE(BLOCKCHAIN_STATE_BORG):
         self.target_difficulties[block.algo].append(block.target_difficulty)
         self.achieved_difficulties[block.algo].append(block.achieved_difficulty)
         self.accumulated_difficulties[block.algo].append(block.accumulated_difficulty)
+        self.delta_solve_times[block.algo].append(block.delta_time)
         self.solve_times[block.algo].append(block.solve_time)
         self.hash_rates[block.algo].append(block.hash_rate)
         self.blocks[block.algo].append(len(self.chain))
@@ -722,7 +741,7 @@ class ORACLE():
                 if len(blocks[j]) == 1:
                     if blocks[j][-1].previous_hash == self.state.chain[-1].block_hash:
                         time[0].append(j)
-                        time[1].append(blocks[j][-1].solve_time)
+                        time[1].append(blocks[j][-1].delta_time)
                         time[2].append(blocks[j][-1].name)
                 elif len(blocks[j]) > 1:
                     print('Received invalid blocks from', blocks[j][-1].name, ' at block', block_number, ' time',
@@ -878,8 +897,8 @@ hash_rate_profiles = []
 if profile[c.incr()] == 1:
     hash_rate_profiles.append([[[0, blocksToSolve], [1, 1]]])
 elif profile[c.val()] == 2:
-    hash_rate_profiles.append([[[50, 250], [10.0, 10.0]], \
-                               [[250, 1800], [10.0, 1.0]], \
+    hash_rate_profiles.append([[[50, 250], [2.0, 2.0]], \
+                               [[250, 1800], [2.0, 1.0]], \
                                [[1800, limit_down(blocksToSolve, 1800)], [1.0, 1.0]]])
 elif profile[c.val()] == 3:
     hash_rate_profiles.append([[[50, 250], [2.5, 2.5]], \
@@ -945,7 +964,7 @@ if profile[c.incr()] == 1:
 strategies = []
 # Algo 1
 smf = 15.0/difficulty_window
-strategies.append(MINE_STRATEGY(hash_rate_attack=False, hash_rate_trigger=1.5, self_mine_factor=smf, contest_tip=False))
+strategies.append(MINE_STRATEGY(hash_rate_attack=True, hash_rate_trigger=1.5, self_mine_factor=smf, contest_tip=False))
 # Algo 2
 strategies.append(MINE_STRATEGY(hash_rate_attack=False, hash_rate_trigger=0, self_mine_factor=0, contest_tip=False))
 # Algo 3
@@ -1038,7 +1057,7 @@ for df in distribution_factor:
 
 #%% Plot results
 # ---- Input hash rate profile
-    fig0, axs0 = plt.subplots(1, noAlgos, figsize=(15, 5))
+    fig0, axs0 = plt.subplots(1, noAlgos, figsize=(18, 5))
     fig0.subplots_adjust(hspace=0.3, wspace=0.3)
     for i in range(0, noAlgos):
         x = np.arange(1, len(miners[i].hash_rate.values) + 1)
@@ -1056,7 +1075,7 @@ for df in distribution_factor:
     plt.show()
 
 # ---- Per algo
-    fig1, axs1 = plt.subplots(noAlgos, 3, figsize=(15, noAlgos*5))
+    fig1, axs1 = plt.subplots(noAlgos, 4, figsize=(18, noAlgos*5))
     fig1.subplots_adjust(hspace=0.3, wspace=0.3)
     for i in range(0, noAlgos):
         if noAlgos < 2:
@@ -1073,6 +1092,10 @@ for df in distribution_factor:
             axs1[2].set_title(miners[i].name + ': Solve time')
             axs1[2].grid()
             axs1[2].set_xlabel('block #')
+            axs1[3].plot(state.blocks[i], state.delta_solve_times[i], marker='.', linewidth=1)
+            axs1[3].set_title(miners[i].name + ': Delta solve time')
+            axs1[3].grid()
+            axs1[3].set_xlabel('block #')
         else:
             axs1[i, 0].plot(state.blocks[i], state.hash_rates[i], marker='.', linewidth=1)
             axs1[i, 0].set_title(miners[i].name + ': Hash rate')
@@ -1087,11 +1110,14 @@ for df in distribution_factor:
             axs1[i, 2].set_title(miners[i].name + ': Solve time')
             axs1[i, 2].grid()
             axs1[i, 2].set_xlabel('block #')
-
+            axs1[i, 3].plot(state.blocks[i], state.delta_solve_times[i], marker='.', linewidth=1)
+            axs1[i, 3].set_title(miners[i].name + ': Delta solve time')
+            axs1[i, 3].grid()
+            axs1[i, 3].set_xlabel('block #')
     plt.show()
 
 # ---- System values
-    fig2, axs2 = plt.subplots(2, 2, figsize=(15, 10))
+    fig2, axs2 = plt.subplots(2, 2, figsize=(18, 10))
 
     y = state.get_block_times()
     x = np.arange(1, len(y) + 1)
