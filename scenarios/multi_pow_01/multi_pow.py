@@ -238,22 +238,27 @@ class RANDOM_FUNC:
         self.randomness = limit_up_down(randomness, 0, 0.9)
         self.rand_down = (1 - self.randomness)
         self.rand_up = (1 + self.randomness)
-        if self.randomness > 0:
-            if str(distribution) == 'normal': #'uniform' or 'normal' or 'poisson'
-                self.distribution = 'normal'
-                print(' ----- %s: Randomness %s => normal distribution, at %s%\n' % (name, owner, self.randomness * 100))
-            elif str(distribution) == 'poisson':
+
+        if str(distribution) == 'none':
+            self.distribution = 'none'
+            print(' ----- %s: Randomness %s => none\n' % (name, owner))
+        else:
+            if str(distribution) == 'poisson':
                 self.distribution = 'poisson'
                 print(' ----- %s: Randomness %s => poisson distribution\n' % (name, owner))
-            elif str(distribution) == 'uniform':
-                self.distribution = 'uniform'
-                print(' ----- %s: Randomness %s => uniform distribution, at +/- %s%\n' % (name, owner, self.randomness * 100))
+            elif self.randomness > 0:
+                if str(distribution) == 'normal': #'uniform' or 'normal' or 'poisson'
+                    self.distribution = 'normal'
+                    print(' ----- %s: Randomness %s => normal distribution, at %s\n' % (name, owner, self.randomness * 100))
+                elif str(distribution) == 'uniform':
+                    self.distribution = 'uniform'
+                    print(' ----- %s: Randomness %s => uniform distribution, at +/- %s\n' % (name, owner, self.randomness * 100))
+                else:
+                    self.distribution = 'none'
+                    print(' ----- %s: Randomness %s => none\n' % (name, owner))
             else:
                 self.distribution = 'none'
                 print(' ----- %s: Randomness %s => none\n' % (name, owner))
-        else:
-            self.distribution = 'none'
-            print(' ----- %s: Randomness %s => none\n' % (name, owner))
 
     def get_value(self, value):
         if self.distribution == 'normal':
@@ -332,7 +337,7 @@ class MINER:
         self.intercept = intercept
         self.name = name
         self.algo_no = algo_no
-        self.min_solve_time = state.miner_target_time[algo_no] / 10 # This is just a guess, used if the algo lags
+        self.min_delta_time = 0 #state.miner_target_time[algo_no] / 10 # This is just a guess, used if the algo lags
         self.new_block_overhead_time = state.miner_target_time[algo_no] / 100 # This is just a guess, used if a cycle is skipped
         if str(type(diff_algo)) != "<class '__main__.DIFFICULTY_LWMA_00'>" and \
             str(type(diff_algo)) != "<class '__main__.DIFFICULTY_LWMA_01_20171206'>" and \
@@ -395,8 +400,9 @@ class MINER:
         #     'delta_time' should thus continue from this algo's previous time stamp, not from the time another algo produced
         #     a block, i.e. the oracle's time
         # - The time lag will be subtracted from the solve time to simulate probability of solving the block in a longer time
-        lag = max((time_now - previous_time_stamp) - self.state.miner_target_time[self.algo_no], 0)
-        delta_time = max(self.min_solve_time, solve_time - lag)
+#        lag = max((time_now - previous_time_stamp) - self.state.miner_target_time[self.algo_no], 0)
+        lag = time_now - previous_time_stamp
+        delta_time = max(self.min_delta_time, solve_time - lag)
         #Block meta data
         block_hash = self.block_hash.get_next_hash()
         accumulated_difficulty_ = accumulated_difficulty + achieved_difficulty
@@ -736,7 +742,7 @@ class ORACLE():
             block_number = int(self.state.chain[-1].block_number) + 1
             # Get blocks for current round (no re-orgs)
             blocks = [[] for k in range(self.state.noAlgos)]
-            time = [[],[], []]
+            time = [[], [], []]
             #print('\nOracle: Get blocks for current round (no re-orgs), block number', block_number, ', time',
             #      self.state.system_time)
             for j in range(0, len(miners)):
@@ -758,7 +764,7 @@ class ORACLE():
                     min_time_cycle = cycle(min_time)
                 algo = time[0][next(min_time_cycle)] #Quickest time, alternate if algos are equal
                 block_at_tip = blocks[algo]
-                delta_time = self.calc_time(time[1])
+                delta_time = time[1][algo] #self.calc_time(time[1])
                 self.state.update(blocks[algo][-1], delta_time)
                 #print('Oracle: times', time[1], ' d_time', delta_time, ' time', self.state.system_time, '  - winner:', \
                 #       blocks[algo][-1].name)
@@ -833,10 +839,10 @@ algos = list(map(list, zip(*algos))) #data into row-column format
 #%% User inputs
 # ---- Read config file
 blocksToSolve = noAlgos = diff_algo = targetBT = difficulty_window = randomness_miner = dist_miner = randomness_hash_rate = \
-    dist_hash_rate = do_distribution_calc = ''
+    dist_hash_rate = do_distribution_calc = add_randomness = ''
 config_file = os.getcwd() + os.path.sep + "multi_pow_inputs.txt"
-config_file_start_id = ">>>> Gtd$K46U%JN*X#Vd3 >>>>"
-config_file_end_id = "<<<< Gtd$K46U%JN*X#Vd3 <<<<"
+config_file_start_id = ">>>> Gtd$K46U%JN*X#Vd4 >>>>"
+config_file_end_id = "<<<< Gtd$K46U%JN*X#Vd4 <<<<"
 if os.path.isfile(config_file):
     with open(config_file,"r") as f:
         fl = f.readlines()
@@ -847,6 +853,7 @@ if os.path.isfile(config_file):
             diff_algo = int(fl[c.incr()].strip())
             targetBT = int(fl[c.incr()].strip())
             difficulty_window = int(fl[c.incr()].strip())
+            add_randomness = int(fl[c.incr()].strip())
             randomness_miner = float(fl[c.incr()].strip())
             dist_miner = int(fl[c.incr()].strip())
             randomness_hash_rate = float(fl[c.incr()].strip())
@@ -854,31 +861,41 @@ if os.path.isfile(config_file):
             do_distribution_calc = int(fl[c.incr()].strip())
 
 # ---- Get new iputs
-blocksToSolve =           limit_down(get_input('Enter number of blocks to solve after initial period   ', \
+blocksToSolve =           limit_down(get_input('Enter number of blocks to solve after initial period       ', \
                                                default=blocksToSolve, my_type='int'), 0)
-noAlgos =              limit_up_down(get_input('Enter the number of mining algorithms (1-%s)            ' \
+noAlgos =              limit_up_down(get_input('Enter the number of mining algorithms (1-%s)                ' \
                                                % (len(algos)), default=noAlgos, my_type='int'), 1, len(algos))
-diff_algo =            limit_up_down(get_input('Diff algo: LWMA(0), LWMA-1`17(1), LWMA-1`18(2), TSA(3) ', \
+diff_algo =            limit_up_down(get_input('Diff algo: LWMA(0), LWMA-1`17(1), LWMA-1`18(2), TSA(3)     ', \
                                                default=diff_algo, my_type='int',), 0, 3)
-targetBT =                limit_down(get_input('Enter the system target block time (>=10)              ', \
+targetBT =                limit_down(get_input('Enter the system target block time (>=10)                  ', \
                                                default=targetBT, my_type='int'), 10)
-difficulty_window =       limit_down(get_input('Enter the difficulty algo window (>=1)                 ', \
+difficulty_window =       limit_down(get_input('Enter the difficulty algo window (>=1)                     ', \
                                                default=difficulty_window, my_type='int',), 1)
-randomness_miner =     limit_up_down(get_input('Enter the mining randomness factor (0-0.9)             ', \
-                                               default=randomness_miner, my_type='float',), 0, 0.9)
-if randomness_miner != 0:
-    dist_miner =       limit_up_down(get_input('    - Dist: None(0), Uniform(1), Normal(2), Poisson(3) ', \
+add_randomness =       limit_up_down(get_input('Add randomness? (0=False/1=True)                           ', \
+                                               default=add_randomness, my_type='int',), 0, 1)
+
+if add_randomness == 1:
+    dist_miner =       limit_up_down(get_input(' - Mining dist: None(0), Uniform(1), Normal(2), Poisson(3) ', \
                                                default=dist_miner, my_type='int',), 0, 3)
-else:
-    dist_miner = 0
-randomness_hash_rate = limit_up_down(get_input('Enter the hash rate randomness factor (0-0.9)          ', \
-                                               default=randomness_hash_rate, my_type='float',), 0, 0.9)
-if randomness_hash_rate != 0:
-    dist_hash_rate =   limit_up_down(get_input('    - Dist: None(0), Uniform(1), Normal(2), Poisson(3) ', \
+    if dist_miner != 0 and dist_miner != 3:
+        randomness_miner = \
+                       limit_up_down(get_input('        - mining randomness factor (0-0.9)                 ', \
+                                               default=randomness_miner, my_type='float',), 0, 0.9)
+    else:
+        randomness_miner = 0
+
+    dist_hash_rate =   limit_up_down(get_input(' - Hash dist: None(0), Uniform(1), Normal(2), Poisson(3)   ', \
                                                default=dist_hash_rate, my_type='int',), 0, 3)
+    if dist_hash_rate != 0 and dist_hash_rate != 3:
+        randomness_hash_rate = \
+                       limit_up_down(get_input('        - hash rate randomness factor (0-0.9)              ', \
+                                               default=randomness_hash_rate, my_type='float',), 0, 0.9)
+    else:
+        randomness_hash_rate = 0
 else:
-    dist_hash_rate = 0
-do_distribution_calc = limit_up_down(get_input('Perform block distribution calc? (0=False/1=True)      ', \
+    dist_miner = randomness_miner = dist_hash_rate = randomness_hash_rate = 0
+
+do_distribution_calc = limit_up_down(get_input('Perform block distribution calc? (0=False/1=True)          ', \
                                                default=do_distribution_calc, my_type='int',), 0, 1)
 
 # ---- Write config file
@@ -889,6 +906,7 @@ with open(config_file,"w+") as f:
     f.write(str(diff_algo) + "\n")
     f.write(str(targetBT) + "\n")
     f.write(str(difficulty_window) + "\n")
+    f.write(str(add_randomness) + "\n")
     f.write(str(randomness_miner) + "\n")
     f.write(str(dist_miner) + "\n")
     f.write(str(randomness_hash_rate) + "\n")
@@ -1000,9 +1018,9 @@ print('\n')
 distribution = []
 if do_distribution_calc == True:
     if dist_miner == 0:
-        distribution_factor = [0.200, 0.075, 0.026, 0.014, 0.009, 0.008, 0.007, 0.006, 0.005, 0.004, 0.003, 0.002, 0.001]
+        distribution_factor = [0.40, 0.30, 0.20, 0.10, 0.05, 0.025, 0.01]
     else:
-        distribution_factor = [0.200, 0.100, 0.075, 0.050, 0.040, 0.030, 0.026, 0.022, 0.018, 0.014, 0.011, 0.010, 0.009]
+        distribution_factor = [0.40, 0.30, 0.20, 0.10, 0.05, 0.025, 0.01]
 else:
     distribution_factor = [0.0]
 
@@ -1011,12 +1029,11 @@ for df in distribution_factor:
         targetBT_profile = [1.0 - df, 1.0 + df, 1.0, 1.0, 1.0] # For distribution calc
     else:
         targetBT_profile = [1.0, 1.0, 1.0, 1.0, 1.0] # Even blocks distribution
-        #targetBT_profile = [0.994, 1.006, 1.0, 1.0, 1.0] # Smooth, 60/40 split for 2x algos
-        #targetBT_profile = [0.965, 1.035, 1.0, 1.0, 1.0] # With poisson randomness, 60/40 split for 2x algos
+        #targetBT_profile = [0.8, 1.2, 1.0, 1.0, 1.0] # 60/40 blocks distribution
+        #targetBT_profile = [0.6, 1.4, 1.0, 1.0, 1.0] # 70/30 blocks distribution
 
 #%% Initialize - blockchain state
 #  (shared among all miners and oracle)
-
     state = BLOCKCHAIN_STATE(noAlgos=noAlgos, initial_difficulties=algos[_DF0], initial_block_time=1, \
                          initial_hash_rates=algos[_HR0], blockchain_target_time=targetBT, target_time_profile=targetBT_profile)
     if len(state.chain) > 0:
@@ -1134,8 +1151,9 @@ for df in distribution_factor:
     axs2[0, 0].set_title('Blockchain: Block times (estimated)')
     axs2[0, 0].grid()
     axs2[0, 0].set_xlabel('block #')
-    axs2[0, 0].text(x[round(len(y)/3)], np.min(y[settling_window:len(y)]) * 0.9, \
-                            r'Average block time = ' + str(round(np.average(y[settling_window:len(y)]), 2)) + 's')
+    axs2[0, 0].text(x[round(len(y)/4)], np.min(y[settling_window:len(y)]) * 0.9, \
+                            r'Average block time = ' + str(round(np.average(y[settling_window:len(y)]), 2)) + 's', \
+                            fontsize=13, fontweight='bold')
 
     y = state.get_geometric_mean()
     x = np.arange(1, len(y) + 1)
@@ -1158,9 +1176,10 @@ for df in distribution_factor:
             y_text = i * 0.95
         else:
             y_text = i * 1.03
-        axs2[1, 0].text(x[round(len(y)/5)], y_text, r'(Algo target time adjust: ' + str(distribution[-1][1][-1][0]) + ', ' +\
+        axs2[1, 0].text(x[round(len(y)/7)], y_text, r'(' + miners[i-1].name + ': Target time ' + \
+                        str(state.miner_target_time[i-1]) + 's (x' + str(distribution[-1][1][-1][0]) + '), ' +\
                         str(distribution[-1][1][-1][1]) + ' blocks, ' + \
-                        str(distribution[-1][1][-1][2]) + '%)')
+                        str(distribution[-1][1][-1][2]) + '%)', fontsize=11, fontweight='bold')
 
     repeats = state.count_repeats()
     axs2[1, 1].plot(repeats[0], repeats[2], marker='.', ls='')
