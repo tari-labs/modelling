@@ -833,10 +833,10 @@ algos = list(map(list, zip(*algos))) #data into row-column format
 #%% User inputs
 # ---- Read config file
 blocksToSolve = noAlgos = diff_algo = targetBT = difficulty_window = randomness_miner = dist_miner = randomness_hash_rate = \
-    dist_hash_rate = ''
+    dist_hash_rate = do_distribution_calc = ''
 config_file = os.getcwd() + os.path.sep + "multi_pow_inputs.txt"
-config_file_start_id = ">>>> Gtd$K46U%JN*X#Vd2 >>>>"
-config_file_end_id = "<<<< Gtd$K46U%JN*X#Vd2 <<<<"
+config_file_start_id = ">>>> Gtd$K46U%JN*X#Vd3 >>>>"
+config_file_end_id = "<<<< Gtd$K46U%JN*X#Vd3 <<<<"
 if os.path.isfile(config_file):
     with open(config_file,"r") as f:
         fl = f.readlines()
@@ -851,6 +851,7 @@ if os.path.isfile(config_file):
             dist_miner = int(fl[c.incr()].strip())
             randomness_hash_rate = float(fl[c.incr()].strip())
             dist_hash_rate = int(fl[c.incr()].strip())
+            do_distribution_calc = int(fl[c.incr()].strip())
 
 # ---- Get new iputs
 blocksToSolve =           limit_down(get_input('Enter number of blocks to solve after initial period   ', \
@@ -877,6 +878,8 @@ if randomness_hash_rate != 0:
                                                default=dist_hash_rate, my_type='int',), 0, 3)
 else:
     dist_hash_rate = 0
+do_distribution_calc = limit_up_down(get_input('Perform block distribution calc? (0=False/1=True)      ', \
+                                               default=do_distribution_calc, my_type='int',), 0, 1)
 
 # ---- Write config file
 with open(config_file,"w+") as f:
@@ -890,6 +893,7 @@ with open(config_file,"w+") as f:
     f.write(str(dist_miner) + "\n")
     f.write(str(randomness_hash_rate) + "\n")
     f.write(str(dist_hash_rate) + "\n")
+    f.write(str(do_distribution_calc) + "\n")
     f.write(config_file_end_id)
 
 #%% Initialize - set hash rate profiles
@@ -967,7 +971,7 @@ if profile[c.incr()] == 1:
 strategies = []
 # Algo 1
 smf = 15.0/difficulty_window
-strategies.append(MINE_STRATEGY(hash_rate_attack=False, hash_rate_trigger=1.5, self_mine_factor=smf, contest_tip=False))
+strategies.append(MINE_STRATEGY(hash_rate_attack=True, hash_rate_trigger=1.5, self_mine_factor=smf, contest_tip=False))
 # Algo 2
 strategies.append(MINE_STRATEGY(hash_rate_attack=False, hash_rate_trigger=0, self_mine_factor=0, contest_tip=False))
 # Algo 3
@@ -993,11 +997,12 @@ else:
 print('\n')
 
 #%% Initialize - blocks distribution settings
-do_distribution_calc = True
 distribution = []
 if do_distribution_calc == True:
-    distribution_factor = [0.4, 0.2, 0.1, 0.05, 0.025, 0.0125, 0.01, 0.009, 0.008, 0.007, 0.006, 0.005, 0.004, 0.003, 0.002, 0.001]
-    distribution_factor = [0.1, 0.05, 0.025, 0.0125, 0.01, 0.009]
+    if dist_miner == 0:
+        distribution_factor = [0.200, 0.075, 0.026, 0.014, 0.009, 0.008, 0.007, 0.006, 0.005, 0.004, 0.003, 0.002, 0.001]
+    else:
+        distribution_factor = [0.200, 0.100, 0.075, 0.050, 0.040, 0.030, 0.026, 0.022, 0.018, 0.014, 0.011, 0.010, 0.009]
 else:
     distribution_factor = [0.0]
 
@@ -1006,8 +1011,8 @@ for df in distribution_factor:
         targetBT_profile = [1.0 - df, 1.0 + df, 1.0, 1.0, 1.0] # For distribution calc
     else:
         targetBT_profile = [1.0, 1.0, 1.0, 1.0, 1.0] # Even blocks distribution
-        #targetBT_profile = [0.9985, 1.0015, 1.0, 1.0, 1.0] # Smooth 0.5% randomness, 60/40 split for 2x algos
-        #targetBT_profile = [0.992, 1.008, 1.0, 1.0, 1.0] # With 10% randomness, 60/40 split for 2x algos
+        #targetBT_profile = [0.994, 1.006, 1.0, 1.0, 1.0] # Smooth, 60/40 split for 2x algos
+        #targetBT_profile = [0.965, 1.035, 1.0, 1.0, 1.0] # With poisson randomness, 60/40 split for 2x algos
 
 #%% Initialize - blockchain state
 #  (shared among all miners and oracle)
