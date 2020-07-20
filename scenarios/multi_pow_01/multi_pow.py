@@ -764,8 +764,7 @@ class ORACLE():
                     min_time_cycle = cycle(min_time)
                 algo = time[0][next(min_time_cycle)] #Quickest time, alternate if algos are equal
                 block_at_tip = blocks[algo]
-                delta_time = time[1][algo] #self.calc_time(time[1])
-                self.state.update(blocks[algo][-1], delta_time)
+                self.state.update(blocks[algo][-1], blocks[algo][-1].delta_time)
                 #print('Oracle: times', time[1], ' d_time', delta_time, ' time', self.state.system_time, '  - winner:', \
                 #       blocks[algo][-1].name)
             else:
@@ -916,7 +915,7 @@ with open(config_file,"w+") as f:
 
 #%% Initialize - set hash rate profiles
 # ---- Profile selection
-profile = [1, 1, 1, 1, 1]
+profile = [2, 1, 1, 1, 1]
 c.reset()
 hash_rate_profiles = []
 # ---- Algo 1 hash rate profile
@@ -989,7 +988,7 @@ if profile[c.incr()] == 1:
 strategies = []
 # Algo 1
 smf = 15.0/difficulty_window
-strategies.append(MINE_STRATEGY(hash_rate_attack=True, hash_rate_trigger=1.5, self_mine_factor=smf, contest_tip=False))
+strategies.append(MINE_STRATEGY(hash_rate_attack=False, hash_rate_trigger=1.5, self_mine_factor=smf, contest_tip=False))
 # Algo 2
 strategies.append(MINE_STRATEGY(hash_rate_attack=False, hash_rate_trigger=0, self_mine_factor=0, contest_tip=False))
 # Algo 3
@@ -1151,7 +1150,7 @@ for df in distribution_factor:
     axs2[0, 0].set_title('Blockchain: Block times (estimated)')
     axs2[0, 0].grid()
     axs2[0, 0].set_xlabel('block #')
-    axs2[0, 0].text(x[round(len(y)/4)], np.min(y[settling_window:len(y)]) * 0.9, \
+    axs2[0, 0].text(x[round(len(y)/4)], np.min(y[settling_window:len(y)]) - 12, \
                             r'Average block time = ' + str(round(np.average(y[settling_window:len(y)]), 2)) + 's', \
                             fontsize=13, fontweight='bold')
 
