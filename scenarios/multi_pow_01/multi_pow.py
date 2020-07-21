@@ -67,6 +67,12 @@ def get_distribution_text(value):
     elif value == 3:
         return 'poisson'
 
+#%% moving_average
+def moving_average(values, window_size):
+    window = min(int(window_size), len(values))
+    y_avg = np.convolve(values, np.ones(window)/window)
+    return y_avg[:len(values)]
+
 #%% calc_geometric_mean
 # Geometric mean (overflow resistant)
 def calc_geometric_mean(values):
@@ -136,7 +142,7 @@ class DIFFICULTY_LWMA_00:
         for i in range(len(solve_times)-n, len(solve_times)):
             _sum += (solve_times[i] * (i+1))
             denom += (i+1)
-        return np.int64(avg_diff * (target_time/(_sum/denom)))
+        return np.float64(avg_diff * (target_time/(_sum/denom)))
 
 #%% Class: DIFFICULTY_LWMA_01_20171206
 #Linear Weighted Moving Average - Bitcoin & Zcash Clones - 2017-12-06
@@ -162,7 +168,7 @@ class DIFFICULTY_LWMA_01_20171206:
         else:
             avg_D = acc_difficulties[0]
         next_D = (avg_D/(200*L))*(N*(N+1)*T*99) #The original algo uses an if statement here that resolves to the same answer
-        return  np.int64(next_D)
+        return  np.float64(next_D)
 
 #%% Class: DIFFICULTY_LWMA_01_20181127
 #Linear Weighted Moving Average - Bitcoin & Zcash Clones - 2018-11-27
@@ -176,11 +182,11 @@ class DIFFICULTY_LWMA_01_20181127:
     def adjust_difficulty(self, difficulties, acc_difficulties, solve_times, target_time, current_time, previous_time_stamp):
         #Not used: current_time, previous_time_stamp
         n = self.difficulty_window if len(solve_times) > self.difficulty_window else len(solve_times)
-        k = np.int64(n * (n + 1) * target_time / 2)
-        weighted_times = np.int64(0)
-        j = np.int64(0)
+        k = np.float64(n * (n + 1) * target_time / 2)
+        weighted_times = np.float64(0)
+        j = np.float64(0)
         for i in range(len(solve_times)-n, len(solve_times)):
-            solve_time = np.int64(min(6*target_time, solve_times[i]))
+            solve_time = np.float64(min(6*target_time, solve_times[i]))
             j += 1
             weighted_times += solve_time * j
         if n > 1:
@@ -189,7 +195,7 @@ class DIFFICULTY_LWMA_01_20181127:
         else:
             ave_difficulty = acc_difficulties[0]
         target = ave_difficulty * k / weighted_times
-        return  np.int64(target)
+        return  np.float64(target)
 
 #%% Class: DIFFICULTY_TSA_20181108
 #TSA, Time Stamp Adjustment to Difficulty, Copyright (c) 2018 Zawy, MIT License.
@@ -206,17 +212,16 @@ class DIFFICULTY_TSA_20181108:
     def adjust_difficulty(self, difficulties, acc_difficulties, solve_times, target_time, current_time, previous_time_stamp):
         TSA_D = self.lwma.adjust_difficulty(difficulties, acc_difficulties, solve_times, target_time, current_time,
                                             previous_time_stamp)
-
         TM = target_time*self.M
         exk = self.k
         current_solve_time_estimate = max(1, max(solve_times[-1], current_time - previous_time_stamp))
-        solve_time = np.int64(min(current_solve_time_estimate, 6*target_time))
+        solve_time = np.float64(min(current_solve_time_estimate, 6*target_time))
         for i in range(1, np.int64(solve_time/TM)):
-            exk = (exk*np.int64(2.718*self.k))/self.k
+            exk = (exk*np.float64(2.718*self.k))/self.k
         f = solve_time % TM
         exk = (exk*(self.k+(f*(self.k+(f*(self.k+(f*self.k)/(3*TM)))/(2*TM)))/(TM)))/self.k
-        TSA_D = max(np.int64(10), (TSA_D*((1000*(self.k*solve_time))/(self.k*target_time+(solve_time-target_time)*exk)))/1000)
-        j = 1000000000
+        TSA_D = max(np.float64(10), np.float64((TSA_D*((1000*(self.k*solve_time))/(self.k*target_time+(solve_time-target_time)*exk)))/1000))
+        j = 1000000000.0
         while j > 1:
             if TSA_D > j*100:
                 TSA_D = ((TSA_D+j/2)/j)*j
@@ -229,8 +234,7 @@ class DIFFICULTY_TSA_20181108:
             TSA_D = (TSA_D*95)/100
         elif self.M == 3:
             TSA_D = (TSA_D*99)/100
-
-        return np.int64(TSA_D)
+        return np.float64(TSA_D)
 
 #%% Class: RANDOM_FUNC
 class RANDOM_FUNC:
@@ -238,22 +242,27 @@ class RANDOM_FUNC:
         self.randomness = limit_up_down(randomness, 0, 0.9)
         self.rand_down = (1 - self.randomness)
         self.rand_up = (1 + self.randomness)
-        if self.randomness > 0:
-            if str(distribution) == 'normal': #'uniform' or 'normal' or 'poisson'
-                self.distribution = 'normal'
-                print(' ----- %s: Randomness %s => normal distribution -----\n' % (name, owner))
-            elif str(distribution) == 'poisson':
+
+        if str(distribution) == 'none':
+            self.distribution = 'none'
+            print(' ----- %s: Randomness %s => none\n' % (name, owner))
+        else:
+            if str(distribution) == 'poisson':
                 self.distribution = 'poisson'
-                print(' ----- %s: Randomness %s => poisson distribution -----\n' % (name, owner))
-            elif str(distribution) == 'uniform':
-                self.distribution = 'uniform'
-                print(' ----- %s: Randomness %s => uniform distribution -----\n' % (name, owner))
+                print(' ----- %s: Randomness %s => poisson distribution\n' % (name, owner))
+            elif self.randomness > 0:
+                if str(distribution) == 'normal': #'uniform' or 'normal' or 'poisson'
+                    self.distribution = 'normal'
+                    print(' ----- %s: Randomness %s => normal distribution, at %s\n' % (name, owner, self.randomness * 100))
+                elif str(distribution) == 'uniform':
+                    self.distribution = 'uniform'
+                    print(' ----- %s: Randomness %s => uniform distribution, at +/- %s\n' % (name, owner, self.randomness * 100))
+                else:
+                    self.distribution = 'none'
+                    print(' ----- %s: Randomness %s => none\n' % (name, owner))
             else:
                 self.distribution = 'none'
-                print(' ----- %s: Randomness %s => none -----\n' % (name, owner))
-        else:
-            self.distribution = 'none'
-            print(' ----- %s: Randomness %s => none -----\n' % (name, owner))
+                print(' ----- %s: Randomness %s => none\n' % (name, owner))
 
     def get_value(self, value):
         if self.distribution == 'normal':
@@ -261,8 +270,8 @@ class RANDOM_FUNC:
         elif self.distribution == 'poisson':
             value = np.random.poisson(value, 1)
         elif self.distribution == 'uniform':
-            value = np.random.uniform(value, value*self.rand_up)
-        return value
+            value = np.random.uniform(value*self.rand_down, value*self.rand_up)
+        return np.float64(value)
 
 
 #%% Class: HASH_RATE
@@ -309,7 +318,7 @@ class HASH_RATE:
             #Apply randomess
             hash_rate = self.rand.get_value(hash_rate)
             #Return
-            return hash_rate
+            return np.float64(hash_rate)
 
 #%% Class: MINE_STRATEGY
 class MINE_STRATEGY:
@@ -328,10 +337,12 @@ class MINER:
     def __init__(self, randomness_miner, dist, initial_difficulty, gradient, intercept, name, algo_no, \
                  diff_algo, strategy, hash_rate, state):
         self.rand = RANDOM_FUNC(randomness_miner, dist, name, 'miner')
-        self.gradient = gradient
-        self.intercept = intercept
+        self.gradient = np.float64(gradient)
+        self.intercept = np.float64(intercept)
         self.name = name
         self.algo_no = algo_no
+        self.min_delta_time = 0 #state.miner_target_time[algo_no] / 10 # This is just a guess, used if the algo lags
+        self.new_block_overhead_time = np.float64(state.miner_target_time[algo_no] / 100) # This is just a guess, used if a cycle is skipped
         if str(type(diff_algo)) != "<class '__main__.DIFFICULTY_LWMA_00'>" and \
             str(type(diff_algo)) != "<class '__main__.DIFFICULTY_LWMA_01_20171206'>" and \
             str(type(diff_algo)) != "<class '__main__.DIFFICULTY_LWMA_01_20181127'>" and \
@@ -356,21 +367,26 @@ class MINER:
             self.state = state
         self.state.chain.append(self.create_block(self.state.target_difficulties[algo_no][-1],
                                                   self.state.achieved_difficulties[algo_no][-1], self.block_hash.get_next_hash(),
-                                                      algo_no, True))
+                                                  0, 0, algo_no, True))
         #Internal
         self.block_number = -1
         self.selfish_mining_time = 0
         self.block_number_selfish_mining_start = -1
 
-    def create_block(self, target_difficulty, accumulated_difficulty, previous_hash, block_number, init):
+    def create_block(self, target_difficulty, accumulated_difficulty, previous_hash, time_now, previous_time_stamp, \
+                     block_number, init):
         #Solve time based on ratio between target difficulty and available hash rate
         self.count.reset()
         hash_rate = self.hash_rate.get_hash_rate(block_number, init)
         while self.count.incr() <= 50:
+            #Randomness can influence the achieved difficulty
             gradient_r = self.rand.get_value(self.gradient)
             solve_time = limit_down((target_difficulty/hash_rate) * gradient_r + self.intercept, 1)
-            achieved_difficulty = np.ceil(((solve_time - self.intercept) / self.gradient) * hash_rate)
-            if achieved_difficulty >= target_difficulty:
+            achieved_difficulty = ((solve_time - self.intercept) / self.gradient) * hash_rate
+            #Randomness can influence the solve time
+            solve_time = self.rand.get_value(solve_time)
+            #Target difficulty must always be achievd
+            if achieved_difficulty >= target_difficulty * 0.9999: #Allow for floating point differences
                 break
         else:
             print('Could not attain target difficulty at block', block_number, 'for', self.name)
@@ -378,11 +394,24 @@ class MINER:
             achieved_difficulty = target_difficulty
             solve_time = limit_down((target_difficulty/hash_rate) * self.gradient + self.intercept, 1)
             print('                               to solve time', solve_time, 'and achieved_difficulty', achieved_difficulty)
+        # - Add overhead time if an algo lagged to simulate discarding the current block for the new block to solve
+        if len(self.state.chain) > 0:
+            if self.algo_no != self.state.chain[-1].algo:
+                solve_time = solve_time + self.new_block_overhead_time
+        #Compensate for the time warp due to difference in oracle's "time now" and this algo's "previous time stamp"
+        #     This solution is based on the average time it takes to produce a block, thus not random based
+        #     'delta_time' will be used to increment the oracle's time
+        #     'delta_time' should thus continue from this algo's previous time stamp, not from the time another algo produced
+        #     a block, i.e. the oracle's time
+        # - The time lag will be subtracted from the solve time to simulate probability of solving the block in a longer time
+#        lag = max((time_now - previous_time_stamp) - self.state.miner_target_time[self.algo_no], 0)
+        lag = time_now - previous_time_stamp
+        delta_time = max(self.min_delta_time, solve_time - lag)
         #Block meta data
         block_hash = self.block_hash.get_next_hash()
         accumulated_difficulty_ = accumulated_difficulty + achieved_difficulty
         block = BLOCK(block_number, block_hash, previous_hash, self.algo_no, self.name, target_difficulty, achieved_difficulty,
-                      accumulated_difficulty_, hash_rate, solve_time)
+                      accumulated_difficulty_, hash_rate, delta_time, solve_time)
         return block
 
     def produce_next_blocks(self, block_number, time_now, init, contest_mode):
@@ -408,7 +437,7 @@ class MINER:
                                         self.state.solve_times[self.algo_no], self.state.miner_target_time[self.algo_no],
                                         time_now, previous_time_stamp)
             self.blocks.append(self.create_block(target_difficulty, self.state.accumulated_difficulties[self.algo_no][-1],
-                                                 blockchain_tip, block_number, init))
+                                                 blockchain_tip, time_now, previous_time_stamp, block_number, init))
             self.block_number = block_number
             self.strategy.send_blocks = True
 
@@ -427,7 +456,7 @@ class MINER:
                                                                      solve_times, self.state.miner_target_time[self.algo_no],
                                                                      time_now_, previous_time_stamp)
                 self.blocks.append(self.create_block(target_difficulty, accumulated_difficulties[-1], blockchain_tip,
-                                                     block_number_, init))
+                                                     time_now, previous_time_stamp, block_number_, init))
                 blockchain_tip = self.blocks[-1].block_hash
                 achieved_difficulties.append(self.blocks[-1].achieved_difficulty)
                 accumulated_difficulties.append(self.blocks[-1].accumulated_difficulty)
@@ -501,13 +530,14 @@ class BLOCK_HASH(BLOCK_HASH_BORG):
 #%% Class: BLOCK
 class BLOCK:
     def __init__(self, block_number, block_hash, previous_hash, algo, name, target_difficulty, achieved_difficulty, \
-                 accumulated_difficulty, hash_rate, solve_time):
+                 accumulated_difficulty, hash_rate, delta_time, solve_time):
         self.algo = int(algo)
         self.name = str(name)
         self.target_difficulty = target_difficulty
         self.achieved_difficulty = float(achieved_difficulty)
         self.accumulated_difficulty = float(accumulated_difficulty)
-        self.solve_time = round(float(solve_time), 1)
+        self.delta_time = round(float(delta_time), 6)
+        self.solve_time = round(float(solve_time), 6)
         self.hash_rate = float(hash_rate)
         self.block_number = np.uint64(block_number)
         self.block_hash = np.uint64(block_hash)
@@ -517,8 +547,8 @@ class BLOCK:
         self.time_stamp = float(0)
 
     def finalize(self, block_time, time_stamp, geometric_mean):
-        self.block_time = round(float(block_time), 1)
-        self.time_stamp = round(float(time_stamp), 1)
+        self.block_time = round(float(block_time), 6)
+        self.time_stamp = round(float(time_stamp), 6)
         self.geometric_mean = geometric_mean
 
 
@@ -544,6 +574,7 @@ class BLOCKCHAIN_STATE(BLOCKCHAIN_STATE_BORG):
             self.target_difficulties = [[] for i in range(self.noAlgos)]
             self.achieved_difficulties = [[] for i in range(self.noAlgos)]
             self.accumulated_difficulties = [[] for i in range(self.noAlgos)]
+            self.delta_solve_times = [[] for i in range(self.noAlgos)]
             self.solve_times = [[] for i in range(self.noAlgos)]
             self.hash_rates = [[] for i in range(self.noAlgos)]
             self.blocks = [[] for i in range(self.noAlgos)]
@@ -555,6 +586,7 @@ class BLOCKCHAIN_STATE(BLOCKCHAIN_STATE_BORG):
                 self.target_difficulties[i].append(initial_difficulties[i])
                 self.achieved_difficulties[i].append(initial_difficulties[i])
                 self.accumulated_difficulties[i].append(initial_difficulties[i])
+                self.delta_solve_times[i].append(initial_block_time)
                 self.solve_times[i].append(initial_block_time)
                 self.hash_rates[i].append(initial_hash_rates[i])
                 self.blocks[i].append(0)
@@ -587,7 +619,7 @@ class BLOCKCHAIN_STATE(BLOCKCHAIN_STATE_BORG):
         return accumulated_difficulties
 
     def update(self, block, block_time):
-        self.system_time = round(self.chain[-1].time_stamp + block_time, 1)
+        self.system_time = self.chain[-1].time_stamp + block_time
         accumulated_difficulties = self.get_geometric_mean_data(block)
         geometric_mean = calc_geometric_mean(accumulated_difficulties)
         block.finalize(block_time, self.system_time, geometric_mean)
@@ -596,6 +628,7 @@ class BLOCKCHAIN_STATE(BLOCKCHAIN_STATE_BORG):
         self.target_difficulties[block.algo].append(block.target_difficulty)
         self.achieved_difficulties[block.algo].append(block.achieved_difficulty)
         self.accumulated_difficulties[block.algo].append(block.accumulated_difficulty)
+        self.delta_solve_times[block.algo].append(block.delta_time)
         self.solve_times[block.algo].append(block.solve_time)
         self.hash_rates[block.algo].append(block.hash_rate)
         self.blocks[block.algo].append(len(self.chain))
@@ -713,7 +746,7 @@ class ORACLE():
             block_number = int(self.state.chain[-1].block_number) + 1
             # Get blocks for current round (no re-orgs)
             blocks = [[] for k in range(self.state.noAlgos)]
-            time = [[],[], []]
+            time = [[], [], []]
             #print('\nOracle: Get blocks for current round (no re-orgs), block number', block_number, ', time',
             #      self.state.system_time)
             for j in range(0, len(miners)):
@@ -722,11 +755,11 @@ class ORACLE():
                 if len(blocks[j]) == 1:
                     if blocks[j][-1].previous_hash == self.state.chain[-1].block_hash:
                         time[0].append(j)
-                        time[1].append(blocks[j][-1].solve_time)
+                        time[1].append(blocks[j][-1].delta_time)
                         time[2].append(blocks[j][-1].name)
                 elif len(blocks[j]) > 1:
                     print('Received invalid blocks from', blocks[j][-1].name, ' at block', block_number, ' time',
-                          self.state.system_time)
+                          round(self.state.system_time, 2))
             # Add block with quickest solve time to the blockchain
             if len(time[0]) > 0:
                 min_time = [k for k, x in enumerate(time[1]) if x == min(time[1])]
@@ -735,8 +768,7 @@ class ORACLE():
                     min_time_cycle = cycle(min_time)
                 algo = time[0][next(min_time_cycle)] #Quickest time, alternate if algos are equal
                 block_at_tip = blocks[algo]
-                delta_time = self.calc_time(time[1])
-                self.state.update(blocks[algo][-1], delta_time)
+                self.state.update(blocks[algo][-1], blocks[algo][-1].delta_time)
                 #print('Oracle: times', time[1], ' d_time', delta_time, ' time', self.state.system_time, '  - winner:', \
                 #       blocks[algo][-1].name)
             else:
@@ -761,7 +793,7 @@ class ORACLE():
                     blocks[algo] = block_at_tip
                     participants.append(algo)
                     participants.sort()
-                    print('Oracle: system_time', self.state.system_time - min(time[1]) + max(time[1]) * 1.01, ', block number', \
+                    print('Oracle: system_time', round(self.state.system_time - min(time[1]) + max(time[1]) * 1.01, 2), ', block number', \
                           block_number)
                     print('Oracle: Re-org participants', [blocks[k][-1].name for k in participants])
                 # Perform geometric mean calc
@@ -810,10 +842,10 @@ algos = list(map(list, zip(*algos))) #data into row-column format
 #%% User inputs
 # ---- Read config file
 blocksToSolve = noAlgos = diff_algo = targetBT = difficulty_window = randomness_miner = dist_miner = randomness_hash_rate = \
-    dist_hash_rate = ''
+    dist_hash_rate = do_distribution_calc = add_randomness = ''
 config_file = os.getcwd() + os.path.sep + "multi_pow_inputs.txt"
-config_file_start_id = ">>>> Gtd$K46U%JN*X#Vd2 >>>>"
-config_file_end_id = "<<<< Gtd$K46U%JN*X#Vd2 <<<<"
+config_file_start_id = ">>>> Gtd$K46U%JN*X#Vd4 >>>>"
+config_file_end_id = "<<<< Gtd$K46U%JN*X#Vd4 <<<<"
 if os.path.isfile(config_file):
     with open(config_file,"r") as f:
         fl = f.readlines()
@@ -824,36 +856,50 @@ if os.path.isfile(config_file):
             diff_algo = int(fl[c.incr()].strip())
             targetBT = int(fl[c.incr()].strip())
             difficulty_window = int(fl[c.incr()].strip())
+            add_randomness = int(fl[c.incr()].strip())
             randomness_miner = float(fl[c.incr()].strip())
             dist_miner = int(fl[c.incr()].strip())
             randomness_hash_rate = float(fl[c.incr()].strip())
             dist_hash_rate = int(fl[c.incr()].strip())
+            do_distribution_calc = int(fl[c.incr()].strip())
 
 # ---- Get new iputs
-blocksToSolve =           limit_down(get_input('Enter number of blocks to solve after initial period   ', \
+blocksToSolve =           limit_down(get_input('Enter number of blocks to solve after initial period       ', \
                                                default=blocksToSolve, my_type='int'), 0)
-noAlgos =              limit_up_down(get_input('Enter the number of mining algorithms (1-%s)            ' \
+noAlgos =              limit_up_down(get_input('Enter the number of mining algorithms (1-%s)                ' \
                                                % (len(algos)), default=noAlgos, my_type='int'), 1, len(algos))
-diff_algo =            limit_up_down(get_input('Diff algo: LWMA(0), LWMA-1`17(1), LWMA-1`18(2), TSA(3) ', \
+diff_algo =            limit_up_down(get_input('Diff algo: LWMA(0), LWMA-1`17(1), LWMA-1`18(2), TSA(3)     ', \
                                                default=diff_algo, my_type='int',), 0, 3)
-targetBT =                limit_down(get_input('Enter the system target block time (>=10)              ', \
+targetBT =                limit_down(get_input('Enter the system target block time (>=10)                  ', \
                                                default=targetBT, my_type='int'), 10)
-difficulty_window =       limit_down(get_input('Enter the difficulty algo window (>=1)                 ', \
+difficulty_window =       limit_down(get_input('Enter the difficulty algo window (>=1)                     ', \
                                                default=difficulty_window, my_type='int',), 1)
-randomness_miner =     limit_up_down(get_input('Enter the mining randomness factor (0-0.9)             ', \
-                                               default=randomness_miner, my_type='float',), 0, 0.9)
-if randomness_miner != 0:
-    dist_miner =       limit_up_down(get_input('    - Dist: None(0), Uniform(1), Normal(2), Poisson(3) ', \
+add_randomness =       limit_up_down(get_input('Add randomness? (0=False/1=True)                           ', \
+                                               default=add_randomness, my_type='int',), 0, 1)
+
+if add_randomness == 1:
+    dist_miner =       limit_up_down(get_input(' - Mining dist: None(0), Uniform(1), Normal(2), Poisson(3) ', \
                                                default=dist_miner, my_type='int',), 0, 3)
-else:
-    dist_miner = 0
-randomness_hash_rate = limit_up_down(get_input('Enter the hash rate randomness factor (0-0.9)          ', \
-                                               default=randomness_hash_rate, my_type='float',), 0, 0.9)
-if randomness_hash_rate != 0:
-    dist_hash_rate =   limit_up_down(get_input('    - Dist: None(0), Uniform(1), Normal(2), Poisson(3) ', \
+    if dist_miner != 0 and dist_miner != 3:
+        randomness_miner = \
+                       limit_up_down(get_input('        - mining randomness factor (0-0.9)                 ', \
+                                               default=randomness_miner, my_type='float',), 0, 0.9)
+    else:
+        randomness_miner = 0
+
+    dist_hash_rate =   limit_up_down(get_input(' - Hash dist: None(0), Uniform(1), Normal(2), Poisson(3)   ', \
                                                default=dist_hash_rate, my_type='int',), 0, 3)
+    if dist_hash_rate != 0 and dist_hash_rate != 3:
+        randomness_hash_rate = \
+                       limit_up_down(get_input('        - hash rate randomness factor (0-0.9)              ', \
+                                               default=randomness_hash_rate, my_type='float',), 0, 0.9)
+    else:
+        randomness_hash_rate = 0
 else:
-    dist_hash_rate = 0
+    dist_miner = randomness_miner = dist_hash_rate = randomness_hash_rate = 0
+
+do_distribution_calc = limit_up_down(get_input('Perform block distribution calc? (0=False/1=True)          ', \
+                                               default=do_distribution_calc, my_type='int',), 0, 1)
 
 # ---- Write config file
 with open(config_file,"w+") as f:
@@ -863,28 +909,30 @@ with open(config_file,"w+") as f:
     f.write(str(diff_algo) + "\n")
     f.write(str(targetBT) + "\n")
     f.write(str(difficulty_window) + "\n")
+    f.write(str(add_randomness) + "\n")
     f.write(str(randomness_miner) + "\n")
     f.write(str(dist_miner) + "\n")
     f.write(str(randomness_hash_rate) + "\n")
     f.write(str(dist_hash_rate) + "\n")
+    f.write(str(do_distribution_calc) + "\n")
     f.write(config_file_end_id)
 
 #%% Initialize - set hash rate profiles
 # ---- Profile selection
-profile = [2, 1, 1, 1, 1]
+profile = [1, 1, 1, 1, 1]
 c.reset()
 hash_rate_profiles = []
 # ---- Algo 1 hash rate profile
 if profile[c.incr()] == 1:
     hash_rate_profiles.append([[[0, blocksToSolve], [1, 1]]])
 elif profile[c.val()] == 2:
-    hash_rate_profiles.append([[[50, 250], [10.0, 10.0]], \
-                               [[250, 1800], [10.0, 1.0]], \
-                               [[1800, limit_down(blocksToSolve, 1800)], [1.0, 1.0]]])
+    hash_rate_profiles.append([[[50, 250], [2.5, 2.5]], \
+                               [[250, 1800], [2.5, 1.0]], \
+                               [[1800, limit_down(blocksToSolve, 3000)], [1.0, 1.0]]])
 elif profile[c.val()] == 3:
     hash_rate_profiles.append([[[50, 250], [2.5, 2.5]], \
                                [[250, 1800], [2.5, 1.75]], \
-                               [[1800, limit_down(blocksToSolve, 1800)], [1.0, 1.0]]])
+                               [[1800, limit_down(blocksToSolve, 3000)], [1.0, 1.0]]])
 elif profile[c.val()] == 4:
     hash_rate_profiles.append([[[1, 250], [2.0, 2.0]], \
                                [[250, 500], [1.0, 1.0]], \
@@ -893,7 +941,7 @@ elif profile[c.val()] == 4:
                                [[1000, 1250], [2.0, 2.0]], \
                                [[1250, 1500], [1.0, 1.0]], \
                                [[1500, 1750], [2.0, 2.0]], \
-                               [[1750, limit_down(blocksToSolve, 1800)], [1.0, 1.0]]])
+                               [[1750, limit_down(blocksToSolve, 3000)], [1.0, 1.0]]])
 elif profile[c.val()] == 5:
     hash_rate_profiles.append([[[1, 250], [2.0, 2.0]], \
                                [[250, 500], [1.0, 1.0]], \
@@ -902,13 +950,12 @@ elif profile[c.val()] == 5:
                                [[1000, 1250], [4.0, 4.0]], \
                                [[1250, 1500], [1.0, 1.0]], \
                                [[1500, 1750], [5.0, 5.0]], \
-                               [[1750, 4000], [5.0, 1.0]], \
-                               [[4000, limit_down(blocksToSolve, 4200)], [1.0, 1.0]]])
+                               [[1750, limit_down(blocksToSolve, 3000)], [1.0, 1.0]]])
 elif profile[c.val()] == 6:
     hash_rate_profiles.append([[[1, 1000], [1.0, 1.5]], \
                                [[1000, 1250], [1.5, 1.5]], \
                                [[1250, 2250], [1.5, 1.0]], \
-                               [[2250, limit_down(blocksToSolve, 2300)], [1.0, 1.0]]])
+                               [[2250, limit_down(blocksToSolve, 3000)], [1.0, 1.0]]])
 # ---- Algo 2 hash rate profile
 if profile[c.incr()] == 1:
     hash_rate_profiles.append([[[0, blocksToSolve], [1, 1]]])
@@ -920,7 +967,7 @@ elif profile[c.val()] == 2:
                                [[1000, 1250], [1.0, 1.0]], \
                                [[1250, 1500], [2.0, 2.0]], \
                                [[1500, 1750], [1.0, 1.0]], \
-                               [[1750, limit_down(blocksToSolve, 1800)], [1.0, 1.0]]])
+                               [[1750, limit_down(blocksToSolve, 3000)], [1.0, 1.0]]])
 # ---- Algo 3 hash rate profile
 if profile[c.incr()] == 1:
     hash_rate_profiles.append([[[0, blocksToSolve], [1, 1]]])
@@ -930,7 +977,7 @@ elif profile[c.val()] == 2:
                                [[800, 1200], [1.0, 1.0]], \
                                [[1200, 1600], [0.5, 0.5]], \
                                [[1600, 2000], [1.0, 1.0]], \
-                               [[2000, limit_down(blocksToSolve, 1800)], [1.0, 1.0]]])
+                               [[2000, limit_down(blocksToSolve, 3000)], [1.0, 1.0]]])
 # ---- Algo 4 hash rate profile
 if profile[c.incr()] == 1:
     hash_rate_profiles.append([[[0, blocksToSolve], [1, 1]]])
@@ -947,13 +994,13 @@ strategies = []
 smf = 15.0/difficulty_window
 strategies.append(MINE_STRATEGY(hash_rate_attack=False, hash_rate_trigger=1.5, self_mine_factor=smf, contest_tip=False))
 # Algo 2
-strategies.append(MINE_STRATEGY(hash_rate_attack=False, hash_rate_trigger=0, self_mine_factor=0, contest_tip=False))
+strategies.append(MINE_STRATEGY(hash_rate_attack=False, hash_rate_trigger=1.5, self_mine_factor=smf, contest_tip=False))
 # Algo 3
-strategies.append(MINE_STRATEGY(hash_rate_attack=False, hash_rate_trigger=0, self_mine_factor=0, contest_tip=False))
+strategies.append(MINE_STRATEGY(hash_rate_attack=False, hash_rate_trigger=1.5, self_mine_factor=smf, contest_tip=False))
 # Algo 4
-strategies.append(MINE_STRATEGY(hash_rate_attack=False, hash_rate_trigger=0, self_mine_factor=0, contest_tip=False))
+strategies.append(MINE_STRATEGY(hash_rate_attack=False, hash_rate_trigger=1.5, self_mine_factor=smf, contest_tip=False))
 # Algo 5
-strategies.append(MINE_STRATEGY(hash_rate_attack=False, hash_rate_trigger=0, self_mine_factor=0, contest_tip=False))
+strategies.append(MINE_STRATEGY(hash_rate_attack=False, hash_rate_trigger=1.5, self_mine_factor=smf, contest_tip=False))
 
 #%% Initialize - random function
 c.reset()
@@ -971,10 +1018,12 @@ else:
 print('\n')
 
 #%% Initialize - blocks distribution settings
-do_distribution_calc = False
 distribution = []
 if do_distribution_calc == True:
-    distribution_factor = [0.4, 0.2, 0.1, 0.05, 0.025, 0.0125, 0.01, 0.009, 0.008, 0.007, 0.006, 0.005, 0.004, 0.003, 0.002, 0.001]
+    if dist_miner == 0:
+        distribution_factor = [0.40, 0.30, 0.20, 0.10, 0.05, 0.025, 0.01, 0.0]
+    else:
+        distribution_factor = [0.40, 0.30, 0.20, 0.10, 0.05, 0.025, 0.01, 0.0]
 else:
     distribution_factor = [0.0]
 
@@ -983,12 +1032,11 @@ for df in distribution_factor:
         targetBT_profile = [1.0 - df, 1.0 + df, 1.0, 1.0, 1.0] # For distribution calc
     else:
         targetBT_profile = [1.0, 1.0, 1.0, 1.0, 1.0] # Even blocks distribution
-        #targetBT_profile = [0.9985, 1.0015, 1.0, 1.0, 1.0] # Smooth 0.5% randomness, 60/40 split for 2x algos
-        #targetBT_profile = [0.992, 1.008, 1.0, 1.0, 1.0] # With 10% randomness, 60/40 split for 2x algos
+        #targetBT_profile = [1.2, 0.8, 1.0, 1.0, 1.0] # 60/40 blocks distribution
+        #targetBT_profile = [1.4, 0.6, 1.0, 1.0, 1.0] # 70/30 blocks distribution
 
 #%% Initialize - blockchain state
 #  (shared among all miners and oracle)
-
     state = BLOCKCHAIN_STATE(noAlgos=noAlgos, initial_difficulties=algos[_DF0], initial_block_time=1, \
                          initial_hash_rates=algos[_HR0], blockchain_target_time=targetBT, target_time_profile=targetBT_profile)
     if len(state.chain) > 0:
@@ -1033,12 +1081,12 @@ for df in distribution_factor:
     oracle.run(miners=miners, blocks_amount=blocksToSolve, init=False)
     print('\n\n----------------------------------------------------------------------')
 # ---- Scenario end
-    print('Main: Scenario ended at block', len(oracle.state.chain), 'and time', oracle.state.system_time)
+    print('Main: Scenario ended at block', len(oracle.state.chain), 'and time', round(oracle.state.system_time, 2), 's')
     print('----------------------------------------------------------------------')
 
 #%% Plot results
 # ---- Input hash rate profile
-    fig0, axs0 = plt.subplots(1, noAlgos, figsize=(15, 5))
+    fig0, axs0 = plt.subplots(1, noAlgos, figsize=(18, 5))
     fig0.subplots_adjust(hspace=0.3, wspace=0.3)
     for i in range(0, noAlgos):
         x = np.arange(1, len(miners[i].hash_rate.values) + 1)
@@ -1056,7 +1104,8 @@ for df in distribution_factor:
     plt.show()
 
 # ---- Per algo
-    fig1, axs1 = plt.subplots(noAlgos, 3, figsize=(15, noAlgos*5))
+    ma_window = int(np.ceil(min(50, len(state.delta_solve_times[i])/5)))
+    fig1, axs1 = plt.subplots(noAlgos, 4, figsize=(18, noAlgos*5))
     fig1.subplots_adjust(hspace=0.3, wspace=0.3)
     for i in range(0, noAlgos):
         if noAlgos < 2:
@@ -1065,41 +1114,66 @@ for df in distribution_factor:
             axs1[0].grid()
             axs1[0].set_xlabel('block #')
             axs1[1].plot(state.blocks[i], state.target_difficulties[i], marker='.', linewidth=1)
-            axs1[1].plot(state.blocks[i], state.achieved_difficulties[i], marker='.', linewidth=1)
+            axs1[1].plot(state.blocks[i], state.achieved_difficulties[i], marker='.', linewidth=1, ls='')
             axs1[1].set_title(miners[i].name + ': Difficulty')
             axs1[1].grid()
             axs1[1].set_xlabel('block #')
-            axs1[2].plot(state.blocks[i], state.solve_times[i], marker='.', linewidth=1)
+            axs1[1].legend(['Target difficulty', 'Achieved difficulty'])
+            axs1[2].plot(state.blocks[i], state.solve_times[i], marker='.', linewidth=1, ls='')
             axs1[2].set_title(miners[i].name + ': Solve time')
             axs1[2].grid()
             axs1[2].set_xlabel('block #')
+            y_avg = moving_average(state.delta_solve_times[i], ma_window)
+            axs1[3].plot(state.blocks[i], state.delta_solve_times[i], marker='.', linewidth=1, ls='')
+            axs1[3].plot(state.blocks[i], y_avg, marker='.', linewidth=1, ls='')
+            axs1[3].set_title(miners[i].name + ': Delta solve time')
+            axs1[3].grid()
+            axs1[3].set_xlabel('block #')
+            axs1[3].legend(['As measured', 'Moving average (of ' + str(ma_window) + ')'])
         else:
             axs1[i, 0].plot(state.blocks[i], state.hash_rates[i], marker='.', linewidth=1)
             axs1[i, 0].set_title(miners[i].name + ': Hash rate')
             axs1[i, 0].grid()
             axs1[i, 0].set_xlabel('block #')
             axs1[i, 1].plot(state.blocks[i], state.target_difficulties[i], marker='.', linewidth=1)
-            axs1[i, 1].plot(state.blocks[i], state.achieved_difficulties[i], marker='.', linewidth=1)
+            axs1[i, 1].plot(state.blocks[i], state.achieved_difficulties[i], marker='.', linewidth=1, ls='')
             axs1[i, 1].set_title(miners[i].name + ': Difficulty')
             axs1[i, 1].grid()
             axs1[i, 1].set_xlabel('block #')
-            axs1[i, 2].plot(state.blocks[i], state.solve_times[i], marker='.', linewidth=1)
+            axs1[i, 1].legend(['Target difficulty', 'Achieved difficulty'])
+            axs1[i, 2].plot(state.blocks[i], state.solve_times[i], marker='.', linewidth=1, ls='')
             axs1[i, 2].set_title(miners[i].name + ': Solve time')
             axs1[i, 2].grid()
             axs1[i, 2].set_xlabel('block #')
-
+            y_avg = moving_average(state.delta_solve_times[i], ma_window)
+            axs1[i, 3].plot(state.blocks[i], state.delta_solve_times[i], marker='.', linewidth=1, ls='')
+            axs1[i, 3].plot(state.blocks[i], y_avg, marker='.', linewidth=1, ls='')
+            axs1[i, 3].set_title(miners[i].name + ': Delta solve time')
+            axs1[i, 3].grid()
+            axs1[i, 3].set_xlabel('block #')
+            axs1[i, 3].legend(['As measured', 'Moving average (of ' + str(ma_window) + ')'])
     plt.show()
 
 # ---- System values
-    fig2, axs2 = plt.subplots(2, 2, figsize=(15, 10))
+    fig2, axs2 = plt.subplots(2, 2, figsize=(18, 10))
+    props1 = dict(boxstyle='round', facecolor='wheat', alpha=0.65)
+    props2 = dict(boxstyle='round', facecolor='wheat', alpha=0.35)
 
+    #Blockchain: Block times (estimated)
     y = state.get_block_times()
+    y_avg = moving_average(y, ma_window)
     x = np.arange(1, len(y) + 1)
-    axs2[0, 0].plot(x, y)
+    axs2[0, 0].plot(x, y, marker='.', ls='')
+    axs2[0, 0].plot(x, y_avg, marker='.', ls='')
     axs2[0, 0].set_title('Blockchain: Block times (estimated)')
     axs2[0, 0].grid()
     axs2[0, 0].set_xlabel('block #')
+    axs2[0, 0].legend(['As measured', 'Moving average (of ' + str(ma_window) + ')'])
+    axs2[0, 0].text(x[round(len(y)/8)], round(np.min(y_avg[settling_window:len(y_avg)]), 2) * 0.75, \
+                            r'Average block time = ' + str(round(np.average(y[settling_window:len(y)]), 2)) + 's', \
+                            fontsize=11, fontweight='bold', bbox=props1)
 
+    #Blockchain: Geometric mean of accumulated difficulties
     y = state.get_geometric_mean()
     x = np.arange(1, len(y) + 1)
     axs2[0, 1].plot(x, y)
@@ -1107,34 +1181,60 @@ for df in distribution_factor:
     axs2[0, 1].grid()
     axs2[0, 1].set_xlabel('block #')
 
+    #Blockchain: Blocks solved per algo
     y = state.get_algo()
     y = [y[i]+1 for i in range(len(y))] #Add 1 to let index coresspond to name
     x = np.arange(1, len(y) + 1)
     axs2[1, 0].plot(x, y, marker='.', ls='')
-    axs2[1, 0].set_title('Blockchain: Algo')
+    axs2[1, 0].set_title('Blockchain: Blocks solved per algo')
     axs2[1, 0].grid()
     axs2[1, 0].set_xlabel('block #')
     distribution.append([df, []])
     for i in range(1, noAlgos + 1):
         distribution[-1][1].append([targetBT_profile[i-1], y.count(i), round(y.count(i)/len(y)*100,1)])
         if i == noAlgos:
-            y_text = i * 0.95
+            y_text = i - noAlgos * 0.06
         else:
-            y_text = i * 1.03
-        axs2[1, 0].text(x[round(len(y)/3)], y_text, r'(Factor: ' + str(distribution[-1][1][-1][0]) + ', ' +\
+            y_text = i + noAlgos * 0.04
+        axs2[1, 0].text(x[0], y_text, r'(' + miners[i-1].name + ': Target time ' + \
+                        str(round(state.miner_target_time[i-1], 2)) + 's (x' + str(distribution[-1][1][-1][0]) + '), ' +\
                         str(distribution[-1][1][-1][1]) + ' blocks, ' + \
-                        str(distribution[-1][1][-1][2]) + '%)')
+                        str(distribution[-1][1][-1][2]) + '%)', fontsize=11, bbox=props2)
 
+    #Blockchain: Repeats
     repeats = state.count_repeats()
     axs2[1, 1].plot(repeats[0], repeats[2], marker='.', ls='')
     axs2[1, 1].set_title('Blockchain: Repeats')
     axs2[1, 1].grid()
     axs2[1, 1].set_xlabel('block #')
     y_max = get_indexes_max_n_values(repeats[2], count=5)
+    values = list(dict.fromkeys([repeats[2][j] for j in [i for i in y_max]]))
+    values.sort()
+    if values[0] == 1:
+        values.remove(1)
+    counts = []
+    for i in range(noAlgos):
+        counts.append([[val, 0] for val in values])
     for i in range(0, len(y_max)):
-        axs2[1, 1].text(repeats[0][y_max[i]] - repeats[0][-1]/20, \
-                        repeats[2][y_max[i]] - max(repeats[2])/15, \
-                            r'(' + str(miners[repeats[1][y_max[i]]].name) + ')')
+        for algo in range(noAlgos):
+            for pair in counts[algo]:
+                if algo == repeats[1][y_max[i]] and pair[0] == repeats[2][y_max[i]]:
+                    pair[1] += 1
+
+    stats = [[val, ''] for val in values]
+    for i in range(noAlgos):
+        for j in range(len(counts[i])):
+            for k in range(noAlgos):
+                if i == k:
+                    if stats[j][1] == '':
+                        div = ''
+                    else:
+                        div = ',  '
+                    if counts[i][j][1] > 0:
+                        stats[j][1] += div + str(miners[k].name) + ': x' + str(counts[i][j][1])
+    for s in stats:
+        axs2[1, 1].text(repeats[0][0], s[0] - stats[-1][0] * 0.07, 'Repeats (' + str(s[0]) + ') - ' + s[1], \
+                        fontsize=11, bbox=props2)
 
     plt.show()
 
@@ -1145,13 +1245,19 @@ if len(distribution) > 1:
     for dist in distribution:
         print('Factor: ', dist[0])
         for i in range(0, noAlgos):
-            print('  - Target time adjust:', dist[1][i][0], ', ', dist[1][i][1], 'blocks, ', dist[1][i][2], '%')
+            print('  - ', miners[i].name, 'target time adjust:', dist[1][i][0], ', at', round(state.miner_target_time[i], 2) , \
+                  's, ', dist[1][i][1], 'blocks, ', dist[1][i][2], '%')
 
     fig3, axs3 = plt.subplots(1, 1, figsize=(10, 5))
+    axs3.grid()
+    axs3.set_title('Block distribution')
+    axs3.set_xlabel('Algo target time adjustment factor')
+    axs3.set_ylabel('%')
     x = [e[0] for e in distribution]
     for i in range(0, noAlgos):
         y = [e[1][i][2] for e in distribution]
-        axs3.plot(x, y)
+        axs3.plot(x, y, marker='*', ls='-')
+    axs3.legend([n.name for n in miners])
 
 #%% ToDo
 # Implement contest_tip
