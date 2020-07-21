@@ -67,6 +67,12 @@ def get_distribution_text(value):
     elif value == 3:
         return 'poisson'
 
+#%% moving_average
+def moving_average(values, window_size):
+    window = min(window_size, len(values)/10)
+    y_avg = np.convolve(values, np.ones(window)/window)
+    return y_avg[:len(values)]
+
 #%% calc_geometric_mean
 # Geometric mean (overflow resistant)
 def calc_geometric_mean(values):
@@ -1015,9 +1021,9 @@ print('\n')
 distribution = []
 if do_distribution_calc == True:
     if dist_miner == 0:
-        distribution_factor = [0.40, 0.30, 0.20, 0.10, 0.05, 0.025, 0.01]
+        distribution_factor = [0.40, 0.30, 0.20, 0.10, 0.05, 0.025, 0.01, 0.0]
     else:
-        distribution_factor = [0.40, 0.30, 0.20, 0.10, 0.05, 0.025, 0.01]
+        distribution_factor = [0.40, 0.30, 0.20, 0.10, 0.05, 0.025, 0.01, 0.0]
 else:
     distribution_factor = [0.0]
 
@@ -1098,6 +1104,7 @@ for df in distribution_factor:
     plt.show()
 
 # ---- Per algo
+    ma_window = 50
     fig1, axs1 = plt.subplots(noAlgos, 4, figsize=(18, noAlgos*5))
     fig1.subplots_adjust(hspace=0.3, wspace=0.3)
     for i in range(0, noAlgos):
@@ -1111,14 +1118,18 @@ for df in distribution_factor:
             axs1[1].set_title(miners[i].name + ': Difficulty')
             axs1[1].grid()
             axs1[1].set_xlabel('block #')
+            axs1[1].legend(['Target difficulty', 'Achieved difficulty'])
             axs1[2].plot(state.blocks[i], state.solve_times[i], marker='.', linewidth=1, ls='')
             axs1[2].set_title(miners[i].name + ': Solve time')
             axs1[2].grid()
             axs1[2].set_xlabel('block #')
+            y_avg = moving_average(state.delta_solve_times[i], ma_window)
             axs1[3].plot(state.blocks[i], state.delta_solve_times[i], marker='.', linewidth=1, ls='')
+            axs1[3].plot(state.blocks[i], y_avg, marker='.', linewidth=1, ls='')
             axs1[3].set_title(miners[i].name + ': Delta solve time')
             axs1[3].grid()
             axs1[3].set_xlabel('block #')
+            axs1[3].legend(['As measured', 'Moving average (of ' + str(ma_window) + ')'])
         else:
             axs1[i, 0].plot(state.blocks[i], state.hash_rates[i], marker='.', linewidth=1)
             axs1[i, 0].set_title(miners[i].name + ': Hash rate')
@@ -1129,29 +1140,38 @@ for df in distribution_factor:
             axs1[i, 1].set_title(miners[i].name + ': Difficulty')
             axs1[i, 1].grid()
             axs1[i, 1].set_xlabel('block #')
+            axs1[i, 1].legend(['Target difficulty', 'Achieved difficulty'])
             axs1[i, 2].plot(state.blocks[i], state.solve_times[i], marker='.', linewidth=1, ls='')
             axs1[i, 2].set_title(miners[i].name + ': Solve time')
             axs1[i, 2].grid()
             axs1[i, 2].set_xlabel('block #')
+            y_avg = moving_average(state.delta_solve_times[i], ma_window)
             axs1[i, 3].plot(state.blocks[i], state.delta_solve_times[i], marker='.', linewidth=1, ls='')
+            axs1[i, 3].plot(state.blocks[i], y_avg, marker='.', linewidth=1, ls='')
             axs1[i, 3].set_title(miners[i].name + ': Delta solve time')
             axs1[i, 3].grid()
             axs1[i, 3].set_xlabel('block #')
+            axs1[i, 3].legend(['As measured', 'Moving average (of ' + str(ma_window) + ')'])
     plt.show()
 
 # ---- System values
     fig2, axs2 = plt.subplots(2, 2, figsize=(18, 10))
+    props1 = dict(boxstyle='round', facecolor='wheat', alpha=0.65)
+    props2 = dict(boxstyle='round', facecolor='wheat', alpha=0.45)
 
     #Blockchain: Block times (estimated)
     y = state.get_block_times()
+    y_avg = moving_average(y, ma_window)
     x = np.arange(1, len(y) + 1)
     axs2[0, 0].plot(x, y, marker='.', ls='')
+    axs2[0, 0].plot(x, y_avg, marker='.', ls='')
     axs2[0, 0].set_title('Blockchain: Block times (estimated)')
     axs2[0, 0].grid()
     axs2[0, 0].set_xlabel('block #')
-    axs2[0, 0].text(x[round(len(y)/8)], np.min(y[settling_window:len(y)]) - 12, \
+    axs2[0, 0].legend(['As measured', 'Moving average (of ' + str(ma_window) + ')'])
+    axs2[0, 0].text(x[round(len(y)/8)], round(np.min(y_avg[settling_window:len(y_avg)]), 2) * 0.75, \
                             r'Average block time = ' + str(round(np.average(y[settling_window:len(y)]), 2)) + 's', \
-                            fontsize=13, fontweight='bold')
+                            fontsize=11, fontweight='bold', bbox=props1)
 
     #Blockchain: Geometric mean of accumulated difficulties
     y = state.get_geometric_mean()
@@ -1161,25 +1181,25 @@ for df in distribution_factor:
     axs2[0, 1].grid()
     axs2[0, 1].set_xlabel('block #')
 
-    #Blockchain: Algo
+    #Blockchain: Blocks solved per algo
     y = state.get_algo()
     y = [y[i]+1 for i in range(len(y))] #Add 1 to let index coresspond to name
     x = np.arange(1, len(y) + 1)
     axs2[1, 0].plot(x, y, marker='.', ls='')
-    axs2[1, 0].set_title('Blockchain: Algo')
+    axs2[1, 0].set_title('Blockchain: Blocks solved per algo')
     axs2[1, 0].grid()
     axs2[1, 0].set_xlabel('block #')
     distribution.append([df, []])
     for i in range(1, noAlgos + 1):
         distribution[-1][1].append([targetBT_profile[i-1], y.count(i), round(y.count(i)/len(y)*100,1)])
         if i == noAlgos:
-            y_text = i * 0.95
+            y_text = i - noAlgos * 0.06
         else:
-            y_text = i * 1.03
+            y_text = i + noAlgos * 0.04
         axs2[1, 0].text(x[0], y_text, r'(' + miners[i-1].name + ': Target time ' + \
-                        str(state.miner_target_time[i-1]) + 's (x' + str(distribution[-1][1][-1][0]) + '), ' +\
+                        str(round(state.miner_target_time[i-1], 2)) + 's (x' + str(distribution[-1][1][-1][0]) + '), ' +\
                         str(distribution[-1][1][-1][1]) + ' blocks, ' + \
-                        str(distribution[-1][1][-1][2]) + '%)', fontsize=11, fontweight='bold')
+                        str(distribution[-1][1][-1][2]) + '%)', fontsize=11, bbox=props2)
 
     #Blockchain: Repeats
     repeats = state.count_repeats()
@@ -1188,10 +1208,33 @@ for df in distribution_factor:
     axs2[1, 1].grid()
     axs2[1, 1].set_xlabel('block #')
     y_max = get_indexes_max_n_values(repeats[2], count=5)
+    values = list(dict.fromkeys(repeats[2]))
+    values.sort()
+    if values[0] == 1:
+        values.remove(1)
+    counts = []
+    for i in range(noAlgos):
+        counts.append([[val, 0] for val in values])
     for i in range(0, len(y_max)):
-        axs2[1, 1].text(repeats[0][y_max[i]] - repeats[0][-1]/20, \
-                        repeats[2][y_max[i]] - max(repeats[2])/15, \
-                            r'(' + str(miners[repeats[1][y_max[i]]].name) + ')')
+        for algo in range(noAlgos):
+            for pair in counts[algo]:
+                if algo == repeats[1][y_max[i]] and pair[0] == repeats[2][y_max[i]]:
+                    pair[1] += 1
+
+    stats = [[val, ''] for val in values]
+    for i in range(noAlgos):
+        for j in range(len(counts[i])):
+            for k in range(noAlgos):
+                if i == k:
+                    if stats[j][1] == '':
+                        div = ''
+                    else:
+                        div = ',  '
+                    if counts[i][j][1] > 0:
+                        stats[j][1] += div + str(miners[k].name) + ': x' + str(counts[i][j][1])
+    for s in stats:
+        axs2[1, 1].text(repeats[0][0], s[0] - stats[-1][0] * 0.07, 'Repeats (' + str(s[0]) + ') - ' + s[1], \
+                        fontsize=11, bbox=props2)
 
     plt.show()
 
