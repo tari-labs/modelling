@@ -136,7 +136,7 @@ class DIFFICULTY_LWMA_00:
         for i in range(len(solve_times)-n, len(solve_times)):
             _sum += (solve_times[i] * (i+1))
             denom += (i+1)
-        return np.int64(avg_diff * (target_time/(_sum/denom)))
+        return np.float64(avg_diff * (target_time/(_sum/denom)))
 
 #%% Class: DIFFICULTY_LWMA_01_20171206
 #Linear Weighted Moving Average - Bitcoin & Zcash Clones - 2017-12-06
@@ -162,7 +162,7 @@ class DIFFICULTY_LWMA_01_20171206:
         else:
             avg_D = acc_difficulties[0]
         next_D = (avg_D/(200*L))*(N*(N+1)*T*99) #The original algo uses an if statement here that resolves to the same answer
-        return  np.int64(next_D)
+        return  np.float64(next_D)
 
 #%% Class: DIFFICULTY_LWMA_01_20181127
 #Linear Weighted Moving Average - Bitcoin & Zcash Clones - 2018-11-27
@@ -176,11 +176,11 @@ class DIFFICULTY_LWMA_01_20181127:
     def adjust_difficulty(self, difficulties, acc_difficulties, solve_times, target_time, current_time, previous_time_stamp):
         #Not used: current_time, previous_time_stamp
         n = self.difficulty_window if len(solve_times) > self.difficulty_window else len(solve_times)
-        k = np.int64(n * (n + 1) * target_time / 2)
-        weighted_times = np.int64(0)
-        j = np.int64(0)
+        k = np.float64(n * (n + 1) * target_time / 2)
+        weighted_times = np.float64(0)
+        j = np.float64(0)
         for i in range(len(solve_times)-n, len(solve_times)):
-            solve_time = np.int64(min(6*target_time, solve_times[i]))
+            solve_time = np.float64(min(6*target_time, solve_times[i]))
             j += 1
             weighted_times += solve_time * j
         if n > 1:
@@ -189,7 +189,7 @@ class DIFFICULTY_LWMA_01_20181127:
         else:
             ave_difficulty = acc_difficulties[0]
         target = ave_difficulty * k / weighted_times
-        return  np.int64(target)
+        return  np.float64(target)
 
 #%% Class: DIFFICULTY_TSA_20181108
 #TSA, Time Stamp Adjustment to Difficulty, Copyright (c) 2018 Zawy, MIT License.
@@ -206,17 +206,16 @@ class DIFFICULTY_TSA_20181108:
     def adjust_difficulty(self, difficulties, acc_difficulties, solve_times, target_time, current_time, previous_time_stamp):
         TSA_D = self.lwma.adjust_difficulty(difficulties, acc_difficulties, solve_times, target_time, current_time,
                                             previous_time_stamp)
-
         TM = target_time*self.M
         exk = self.k
         current_solve_time_estimate = max(1, max(solve_times[-1], current_time - previous_time_stamp))
-        solve_time = np.int64(min(current_solve_time_estimate, 6*target_time))
+        solve_time = np.float64(min(current_solve_time_estimate, 6*target_time))
         for i in range(1, np.int64(solve_time/TM)):
-            exk = (exk*np.int64(2.718*self.k))/self.k
+            exk = (exk*np.float64(2.718*self.k))/self.k
         f = solve_time % TM
         exk = (exk*(self.k+(f*(self.k+(f*(self.k+(f*self.k)/(3*TM)))/(2*TM)))/(TM)))/self.k
-        TSA_D = max(np.int64(10), (TSA_D*((1000*(self.k*solve_time))/(self.k*target_time+(solve_time-target_time)*exk)))/1000)
-        j = 1000000000
+        TSA_D = max(np.float64(10), np.float64((TSA_D*((1000*(self.k*solve_time))/(self.k*target_time+(solve_time-target_time)*exk)))/1000))
+        j = 1000000000.0
         while j > 1:
             if TSA_D > j*100:
                 TSA_D = ((TSA_D+j/2)/j)*j
@@ -229,8 +228,7 @@ class DIFFICULTY_TSA_20181108:
             TSA_D = (TSA_D*95)/100
         elif self.M == 3:
             TSA_D = (TSA_D*99)/100
-
-        return np.int64(TSA_D)
+        return np.float64(TSA_D)
 
 #%% Class: RANDOM_FUNC
 class RANDOM_FUNC:
@@ -267,7 +265,7 @@ class RANDOM_FUNC:
             value = np.random.poisson(value, 1)
         elif self.distribution == 'uniform':
             value = np.random.uniform(value*self.rand_down, value*self.rand_up)
-        return value
+        return np.float64(value)
 
 
 #%% Class: HASH_RATE
@@ -314,7 +312,7 @@ class HASH_RATE:
             #Apply randomess
             hash_rate = self.rand.get_value(hash_rate)
             #Return
-            return hash_rate
+            return np.float64(hash_rate)
 
 #%% Class: MINE_STRATEGY
 class MINE_STRATEGY:
@@ -333,12 +331,12 @@ class MINER:
     def __init__(self, randomness_miner, dist, initial_difficulty, gradient, intercept, name, algo_no, \
                  diff_algo, strategy, hash_rate, state):
         self.rand = RANDOM_FUNC(randomness_miner, dist, name, 'miner')
-        self.gradient = gradient
-        self.intercept = intercept
+        self.gradient = np.float64(gradient)
+        self.intercept = np.float64(intercept)
         self.name = name
         self.algo_no = algo_no
         self.min_delta_time = 0 #state.miner_target_time[algo_no] / 10 # This is just a guess, used if the algo lags
-        self.new_block_overhead_time = state.miner_target_time[algo_no] / 100 # This is just a guess, used if a cycle is skipped
+        self.new_block_overhead_time = np.float64(state.miner_target_time[algo_no] / 100) # This is just a guess, used if a cycle is skipped
         if str(type(diff_algo)) != "<class '__main__.DIFFICULTY_LWMA_00'>" and \
             str(type(diff_algo)) != "<class '__main__.DIFFICULTY_LWMA_01_20171206'>" and \
             str(type(diff_algo)) != "<class '__main__.DIFFICULTY_LWMA_01_20181127'>" and \
@@ -378,11 +376,11 @@ class MINER:
             #Randomness can influence the achieved difficulty
             gradient_r = self.rand.get_value(self.gradient)
             solve_time = limit_down((target_difficulty/hash_rate) * gradient_r + self.intercept, 1)
-            achieved_difficulty = np.ceil(((solve_time - self.intercept) / self.gradient) * hash_rate)
+            achieved_difficulty = ((solve_time - self.intercept) / self.gradient) * hash_rate
             #Randomness can influence the solve time
             solve_time = self.rand.get_value(solve_time)
             #Target difficulty must always be achievd
-            if achieved_difficulty >= target_difficulty:
+            if achieved_difficulty >= target_difficulty * 0.9999: #Allow for floating point differences
                 break
         else:
             print('Could not attain target difficulty at block', block_number, 'for', self.name)
@@ -532,8 +530,8 @@ class BLOCK:
         self.target_difficulty = target_difficulty
         self.achieved_difficulty = float(achieved_difficulty)
         self.accumulated_difficulty = float(accumulated_difficulty)
-        self.delta_time = round(float(delta_time), 1)
-        self.solve_time = round(float(solve_time), 1)
+        self.delta_time = round(float(delta_time), 6)
+        self.solve_time = round(float(solve_time), 6)
         self.hash_rate = float(hash_rate)
         self.block_number = np.uint64(block_number)
         self.block_hash = np.uint64(block_hash)
@@ -543,8 +541,8 @@ class BLOCK:
         self.time_stamp = float(0)
 
     def finalize(self, block_time, time_stamp, geometric_mean):
-        self.block_time = round(float(block_time), 1)
-        self.time_stamp = round(float(time_stamp), 1)
+        self.block_time = round(float(block_time), 6)
+        self.time_stamp = round(float(time_stamp), 6)
         self.geometric_mean = geometric_mean
 
 
@@ -615,7 +613,7 @@ class BLOCKCHAIN_STATE(BLOCKCHAIN_STATE_BORG):
         return accumulated_difficulties
 
     def update(self, block, block_time):
-        self.system_time = round(self.chain[-1].time_stamp + block_time, 1)
+        self.system_time = self.chain[-1].time_stamp + block_time
         accumulated_difficulties = self.get_geometric_mean_data(block)
         geometric_mean = calc_geometric_mean(accumulated_difficulties)
         block.finalize(block_time, self.system_time, geometric_mean)
@@ -755,7 +753,7 @@ class ORACLE():
                         time[2].append(blocks[j][-1].name)
                 elif len(blocks[j]) > 1:
                     print('Received invalid blocks from', blocks[j][-1].name, ' at block', block_number, ' time',
-                          self.state.system_time)
+                          round(self.state.system_time, 2))
             # Add block with quickest solve time to the blockchain
             if len(time[0]) > 0:
                 min_time = [k for k, x in enumerate(time[1]) if x == min(time[1])]
@@ -789,7 +787,7 @@ class ORACLE():
                     blocks[algo] = block_at_tip
                     participants.append(algo)
                     participants.sort()
-                    print('Oracle: system_time', self.state.system_time - min(time[1]) + max(time[1]) * 1.01, ', block number', \
+                    print('Oracle: system_time', round(self.state.system_time - min(time[1]) + max(time[1]) * 1.01, 2), ', block number', \
                           block_number)
                     print('Oracle: Re-org participants', [blocks[k][-1].name for k in participants])
                 # Perform geometric mean calc
@@ -915,7 +913,7 @@ with open(config_file,"w+") as f:
 
 #%% Initialize - set hash rate profiles
 # ---- Profile selection
-profile = [2, 1, 1, 1, 1]
+profile = [1, 1, 1, 1, 1]
 c.reset()
 hash_rate_profiles = []
 # ---- Algo 1 hash rate profile
@@ -1077,7 +1075,7 @@ for df in distribution_factor:
     oracle.run(miners=miners, blocks_amount=blocksToSolve, init=False)
     print('\n\n----------------------------------------------------------------------')
 # ---- Scenario end
-    print('Main: Scenario ended at block', len(oracle.state.chain), 'and time', oracle.state.system_time)
+    print('Main: Scenario ended at block', len(oracle.state.chain), 'and time', round(oracle.state.system_time, 2), 's')
     print('----------------------------------------------------------------------')
 
 #%% Plot results
@@ -1144,16 +1142,18 @@ for df in distribution_factor:
 # ---- System values
     fig2, axs2 = plt.subplots(2, 2, figsize=(18, 10))
 
+    #Blockchain: Block times (estimated)
     y = state.get_block_times()
     x = np.arange(1, len(y) + 1)
     axs2[0, 0].plot(x, y, marker='.', ls='')
     axs2[0, 0].set_title('Blockchain: Block times (estimated)')
     axs2[0, 0].grid()
     axs2[0, 0].set_xlabel('block #')
-    axs2[0, 0].text(x[round(len(y)/4)], np.min(y[settling_window:len(y)]) - 12, \
+    axs2[0, 0].text(x[round(len(y)/8)], np.min(y[settling_window:len(y)]) - 12, \
                             r'Average block time = ' + str(round(np.average(y[settling_window:len(y)]), 2)) + 's', \
                             fontsize=13, fontweight='bold')
 
+    #Blockchain: Geometric mean of accumulated difficulties
     y = state.get_geometric_mean()
     x = np.arange(1, len(y) + 1)
     axs2[0, 1].plot(x, y)
@@ -1161,6 +1161,7 @@ for df in distribution_factor:
     axs2[0, 1].grid()
     axs2[0, 1].set_xlabel('block #')
 
+    #Blockchain: Algo
     y = state.get_algo()
     y = [y[i]+1 for i in range(len(y))] #Add 1 to let index coresspond to name
     x = np.arange(1, len(y) + 1)
@@ -1175,11 +1176,12 @@ for df in distribution_factor:
             y_text = i * 0.95
         else:
             y_text = i * 1.03
-        axs2[1, 0].text(x[round(len(y)/7)], y_text, r'(' + miners[i-1].name + ': Target time ' + \
+        axs2[1, 0].text(x[0], y_text, r'(' + miners[i-1].name + ': Target time ' + \
                         str(state.miner_target_time[i-1]) + 's (x' + str(distribution[-1][1][-1][0]) + '), ' +\
                         str(distribution[-1][1][-1][1]) + ' blocks, ' + \
                         str(distribution[-1][1][-1][2]) + '%)', fontsize=11, fontweight='bold')
 
+    #Blockchain: Repeats
     repeats = state.count_repeats()
     axs2[1, 1].plot(repeats[0], repeats[2], marker='.', ls='')
     axs2[1, 1].set_title('Blockchain: Repeats')
