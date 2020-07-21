@@ -69,7 +69,7 @@ def get_distribution_text(value):
 
 #%% moving_average
 def moving_average(values, window_size):
-    window = min(window_size, len(values)/10)
+    window = min(int(window_size), len(values))
     y_avg = np.convolve(values, np.ones(window)/window)
     return y_avg[:len(values)]
 
@@ -928,11 +928,11 @@ if profile[c.incr()] == 1:
 elif profile[c.val()] == 2:
     hash_rate_profiles.append([[[50, 250], [2.5, 2.5]], \
                                [[250, 1800], [2.5, 1.0]], \
-                               [[1800, limit_down(blocksToSolve, 1800)], [1.0, 1.0]]])
+                               [[1800, limit_down(blocksToSolve, 3000)], [1.0, 1.0]]])
 elif profile[c.val()] == 3:
     hash_rate_profiles.append([[[50, 250], [2.5, 2.5]], \
                                [[250, 1800], [2.5, 1.75]], \
-                               [[1800, limit_down(blocksToSolve, 1800)], [1.0, 1.0]]])
+                               [[1800, limit_down(blocksToSolve, 3000)], [1.0, 1.0]]])
 elif profile[c.val()] == 4:
     hash_rate_profiles.append([[[1, 250], [2.0, 2.0]], \
                                [[250, 500], [1.0, 1.0]], \
@@ -941,7 +941,7 @@ elif profile[c.val()] == 4:
                                [[1000, 1250], [2.0, 2.0]], \
                                [[1250, 1500], [1.0, 1.0]], \
                                [[1500, 1750], [2.0, 2.0]], \
-                               [[1750, limit_down(blocksToSolve, 1800)], [1.0, 1.0]]])
+                               [[1750, limit_down(blocksToSolve, 3000)], [1.0, 1.0]]])
 elif profile[c.val()] == 5:
     hash_rate_profiles.append([[[1, 250], [2.0, 2.0]], \
                                [[250, 500], [1.0, 1.0]], \
@@ -955,7 +955,7 @@ elif profile[c.val()] == 6:
     hash_rate_profiles.append([[[1, 1000], [1.0, 1.5]], \
                                [[1000, 1250], [1.5, 1.5]], \
                                [[1250, 2250], [1.5, 1.0]], \
-                               [[2250, limit_down(blocksToSolve, 2300)], [1.0, 1.0]]])
+                               [[2250, limit_down(blocksToSolve, 3000)], [1.0, 1.0]]])
 # ---- Algo 2 hash rate profile
 if profile[c.incr()] == 1:
     hash_rate_profiles.append([[[0, blocksToSolve], [1, 1]]])
@@ -967,7 +967,7 @@ elif profile[c.val()] == 2:
                                [[1000, 1250], [1.0, 1.0]], \
                                [[1250, 1500], [2.0, 2.0]], \
                                [[1500, 1750], [1.0, 1.0]], \
-                               [[1750, limit_down(blocksToSolve, 1800)], [1.0, 1.0]]])
+                               [[1750, limit_down(blocksToSolve, 3000)], [1.0, 1.0]]])
 # ---- Algo 3 hash rate profile
 if profile[c.incr()] == 1:
     hash_rate_profiles.append([[[0, blocksToSolve], [1, 1]]])
@@ -977,7 +977,7 @@ elif profile[c.val()] == 2:
                                [[800, 1200], [1.0, 1.0]], \
                                [[1200, 1600], [0.5, 0.5]], \
                                [[1600, 2000], [1.0, 1.0]], \
-                               [[2000, limit_down(blocksToSolve, 1800)], [1.0, 1.0]]])
+                               [[2000, limit_down(blocksToSolve, 3000)], [1.0, 1.0]]])
 # ---- Algo 4 hash rate profile
 if profile[c.incr()] == 1:
     hash_rate_profiles.append([[[0, blocksToSolve], [1, 1]]])
@@ -994,13 +994,13 @@ strategies = []
 smf = 15.0/difficulty_window
 strategies.append(MINE_STRATEGY(hash_rate_attack=False, hash_rate_trigger=1.5, self_mine_factor=smf, contest_tip=False))
 # Algo 2
-strategies.append(MINE_STRATEGY(hash_rate_attack=False, hash_rate_trigger=0, self_mine_factor=0, contest_tip=False))
+strategies.append(MINE_STRATEGY(hash_rate_attack=False, hash_rate_trigger=1.5, self_mine_factor=smf, contest_tip=False))
 # Algo 3
-strategies.append(MINE_STRATEGY(hash_rate_attack=False, hash_rate_trigger=0, self_mine_factor=0, contest_tip=False))
+strategies.append(MINE_STRATEGY(hash_rate_attack=False, hash_rate_trigger=1.5, self_mine_factor=smf, contest_tip=False))
 # Algo 4
-strategies.append(MINE_STRATEGY(hash_rate_attack=False, hash_rate_trigger=0, self_mine_factor=0, contest_tip=False))
+strategies.append(MINE_STRATEGY(hash_rate_attack=False, hash_rate_trigger=1.5, self_mine_factor=smf, contest_tip=False))
 # Algo 5
-strategies.append(MINE_STRATEGY(hash_rate_attack=False, hash_rate_trigger=0, self_mine_factor=0, contest_tip=False))
+strategies.append(MINE_STRATEGY(hash_rate_attack=False, hash_rate_trigger=1.5, self_mine_factor=smf, contest_tip=False))
 
 #%% Initialize - random function
 c.reset()
@@ -1032,8 +1032,8 @@ for df in distribution_factor:
         targetBT_profile = [1.0 - df, 1.0 + df, 1.0, 1.0, 1.0] # For distribution calc
     else:
         targetBT_profile = [1.0, 1.0, 1.0, 1.0, 1.0] # Even blocks distribution
-        #targetBT_profile = [0.8, 1.2, 1.0, 1.0, 1.0] # 60/40 blocks distribution
-        #targetBT_profile = [0.6, 1.4, 1.0, 1.0, 1.0] # 70/30 blocks distribution
+        #targetBT_profile = [1.2, 0.8, 1.0, 1.0, 1.0] # 60/40 blocks distribution
+        #targetBT_profile = [1.4, 0.6, 1.0, 1.0, 1.0] # 70/30 blocks distribution
 
 #%% Initialize - blockchain state
 #  (shared among all miners and oracle)
@@ -1104,7 +1104,7 @@ for df in distribution_factor:
     plt.show()
 
 # ---- Per algo
-    ma_window = 50
+    ma_window = int(np.ceil(min(50, len(state.delta_solve_times[i])/5)))
     fig1, axs1 = plt.subplots(noAlgos, 4, figsize=(18, noAlgos*5))
     fig1.subplots_adjust(hspace=0.3, wspace=0.3)
     for i in range(0, noAlgos):
@@ -1157,7 +1157,7 @@ for df in distribution_factor:
 # ---- System values
     fig2, axs2 = plt.subplots(2, 2, figsize=(18, 10))
     props1 = dict(boxstyle='round', facecolor='wheat', alpha=0.65)
-    props2 = dict(boxstyle='round', facecolor='wheat', alpha=0.45)
+    props2 = dict(boxstyle='round', facecolor='wheat', alpha=0.35)
 
     #Blockchain: Block times (estimated)
     y = state.get_block_times()
@@ -1208,7 +1208,7 @@ for df in distribution_factor:
     axs2[1, 1].grid()
     axs2[1, 1].set_xlabel('block #')
     y_max = get_indexes_max_n_values(repeats[2], count=5)
-    values = list(dict.fromkeys(repeats[2]))
+    values = list(dict.fromkeys([repeats[2][j] for j in [i for i in y_max]]))
     values.sort()
     if values[0] == 1:
         values.remove(1)
