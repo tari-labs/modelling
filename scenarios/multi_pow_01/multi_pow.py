@@ -1031,7 +1031,8 @@ else:
 
 for df in distribution_factor:
     if do_distribution_calc == True:
-        targetBT_profile = [1.0 + df, 1.0 - df, 1.0, 1.0, 1.0] # For distribution calc
+        df_others = 1 + df / (noAlgos - 1)
+        targetBT_profile = [df_others, 1.0 - df, df_others, df_others, df_others] # For distribution calc
     else:
         targetBT_profile = [1.0, 1.0, 1.0, 1.0, 1.0] # Even blocks distribution
         #targetBT_profile = [1.2, 0.8, 1.0, 1.0, 1.0] # 60/40 blocks distribution
