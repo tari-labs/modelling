@@ -74,7 +74,7 @@ def moving_average(values, window_size):
     return y_avg[:len(values)]
 
 #%% calc_geometric_mean
-# Geometric mean (overflow resistant)
+# Geometric mean (overflow resistant) [https://stackoverflow.com/posts/43099751/revisions]
 def calc_geometric_mean(values):
     try:
         n = len(values)
