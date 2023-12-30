@@ -1,6 +1,6 @@
 # Hash Rate Attack - RandomX
 
-(_The report must be [**viewed here**](https://demo.hedgedoc.org/s/cKgrfUlG3) for correct rendering of the images._)
+(_If not using HedgeDoc, the report must be [**viewed here**](https://demo.hedgedoc.org/s/cKgrfUlG3) for correct rendering of the images._)
 
 ## Purpose of the Report
 
@@ -23,11 +23,11 @@ Scenario 3 - RandomX Increases 15x:
 - Algo 2 (RandomX) wins these consecutive blocks in quick succession (top 4 repeats): 17 + 12 + 8 + 7 = 44
 
 
-![](https://codimd.s3.shivering-isles.com/demo/uploads/upload_f61cc56002c4ecebecdf3796f5f666c8.png)
+![](https://s3.hedgedoc.org/demo/uploads/upload_f61cc56002c4ecebecdf3796f5f666c8.png)
 
 ## Simulation Assumptions
 
-The simulation assumptions are discussed in [**this writeup**](https://demo.codimd.org/s/SksWPUHeD), and the simulation code base is available on GitHub at [**tari-labs/modelling/scenarios/multi_pow_01**](https://github.com/tari-labs/modelling/tree/master/scenarios/multi_pow_01).
+The simulation assumptions are discussed in [**this writeup**](https://demo.hedgedoc.org/Nux3iRE_TXSX2qH2m1KUMw), and the simulation code base is available on GitHub at [**tari-labs/modelling/scenarios/multi_pow_01**](https://github.com/tari-labs/modelling/tree/master/scenarios/multi_pow_01).
 
 ## User Input
 
@@ -80,40 +80,40 @@ Main: Scenario ended at block 1270 and time 156635.04 s
 
 #### Hash Rate Profile
 
-![](https://codimd.s3.shivering-isles.com/demo/uploads/upload_fc13fdbee7b9ff0c5928a06a066b2bce.png)
+![](https://s3.hedgedoc.org/demo/uploads/upload_fc13fdbee7b9ff0c5928a06a066b2bce.png)
 
 #### Algo Performance
 
-![](https://codimd.s3.shivering-isles.com/demo/uploads/upload_c5e3e3cd0b841f7bdee3fc5a36be7fcc.png)
+![](https://s3.hedgedoc.org/demo/uploads/upload_c5e3e3cd0b841f7bdee3fc5a36be7fcc.png)
 
 #### Blockchain Stats
 
-![](https://codimd.s3.shivering-isles.com/demo/uploads/upload_f5d57996221bbc75a8ab14c6d138cfd6.png)
+![](https://s3.hedgedoc.org/demo/uploads/upload_f5d57996221bbc75a8ab14c6d138cfd6.png)
 
 ### Scenario 2 - RandomX Increases 10x
 
 #### Hash Rate Profile
 
-![](https://codimd.s3.shivering-isles.com/demo/uploads/upload_62edcee9f9dedfae18fdb34c2a844b9a.png)
+![](https://s3.hedgedoc.org/demo/uploads/upload_62edcee9f9dedfae18fdb34c2a844b9a.png)
 
 #### Algo Performance
 
-![](https://codimd.s3.shivering-isles.com/demo/uploads/upload_3ba85cdd18ce39d3aadbd87d4a49a69c.png)
+![](https://s3.hedgedoc.org/demo/uploads/upload_3ba85cdd18ce39d3aadbd87d4a49a69c.png)
 
 #### Blockchain Stats
 
-![](https://codimd.s3.shivering-isles.com/demo/uploads/upload_415abd5ce925c71b368f56a0201a314c.png)
+![](https://s3.hedgedoc.org/demo/uploads/upload_415abd5ce925c71b368f56a0201a314c.png)
 
 ### Scenario 3 - RandomX Increases 15x
 
 #### Hash Rate Profile
 
-![](https://codimd.s3.shivering-isles.com/demo/uploads/upload_5209f4550f9976a753076f39c469b56d.png)
+![](https://s3.hedgedoc.org/demo/uploads/upload_5209f4550f9976a753076f39c469b56d.png)
 
 #### Algo Performance
 
-![](https://codimd.s3.shivering-isles.com/demo/uploads/upload_6843beb984f83f179627a0480f2bf5ad.png)
+![](https://s3.hedgedoc.org/demo/uploads/upload_6843beb984f83f179627a0480f2bf5ad.png)
 
 #### Blockchain Stats
 
-![](https://codimd.s3.shivering-isles.com/demo/uploads/upload_ddc2f89d893614dc4ecf3d7f03df7fbc.png)
+![](https://s3.hedgedoc.org/demo/uploads/upload_ddc2f89d893614dc4ecf3d7f03df7fbc.png)

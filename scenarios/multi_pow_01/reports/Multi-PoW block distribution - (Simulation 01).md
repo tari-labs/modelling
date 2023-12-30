@@ -1,6 +1,6 @@
 # Multi-PoW block distribution - (Simulation 01)
 
-(_The report must be [**viewed here**](https://demo.codimd.org/s/Bk2gsCflD) for correct rendering of the images._)
+(_If not using HedgeDoc, the report must be [**viewed here**](https://demo.hedgedoc.org/n7kUQNr4S9uwiLhJStRx-Q) for correct rendering of the images._)
 
 ## Purpose of the report
 
@@ -10,13 +10,13 @@ With this simulation an uneven block distribution for two mining algorithms is i
 
 ## Simulation assumptions
 
-The simulation assumptions are discussed in [**this writeup**](https://demo.codimd.org/s/SksWPUHeD), and the simulation code base is available on GitHub at [**tari-labs/modelling/scenarios/multi_pow_01**](https://github.com/tari-labs/modelling/tree/master/scenarios/multi_pow_01).
+The simulation assumptions are discussed in [**this writeup**](https://demo.hedgedoc.org/Nux3iRE_TXSX2qH2m1KUMw), and the simulation code base is available on GitHub at [**tari-labs/modelling/scenarios/multi_pow_01**](https://github.com/tari-labs/modelling/tree/master/scenarios/multi_pow_01).
 
 ## Case 01: 2x algorithms, nominal values = no randomness
 
 ### Hash rate profiles used:
 
-<p align="center"><img src="https://codimd.s3.shivering-isles.com/demo/uploads/upload_90ccf563f6ab41525a82b9274502a064.png"></p>
+<p align="center"><img src="https://s3.hedgedoc.org/demo/uploads/upload_90ccf563f6ab41525a82b9274502a064.png"></p>
 
 ### Simulation parameters (Case 01):
 
@@ -54,11 +54,11 @@ algo_2_target_block_time_adjust = 1.0 - df[i]
 
 The simulation for target times of 336.0 s and 144.0 s for algo 1 and algo 2 respectively, corresponding to a `df = [0.40]` adjustment factor, is shown here.
 
-![fig2](https://codimd.s3.shivering-isles.com/demo/uploads/upload_180de2a2e7ad4dfc00b56013be39858b.png)
+![fig2](https://s3.hedgedoc.org/demo/uploads/upload_180de2a2e7ad4dfc00b56013be39858b.png)
 
 It is noticeable that, for this nominal case, after the initial difficulty adjustment settling period, delta solve times settles on constant values. Integrated system block time shows a constant average, as shown below.
 
-![fig3](https://codimd.s3.shivering-isles.com/demo/uploads/upload_e60dba90a74229cfdeaa8b38db7a3f73.png)
+![fig3](https://s3.hedgedoc.org/demo/uploads/upload_e60dba90a74229cfdeaa8b38db7a3f73.png)
 
 ### Block distribution (Case 01):
 
@@ -89,7 +89,7 @@ Factor:  0.0
   -  Algo 2 target time adjust: 1.0 , at 240.0 s,  1635 blocks,  50.0 %
 ```
 
-![](https://codimd.s3.shivering-isles.com/demo/uploads/upload_2a584d298884a284912dd5b54c1ceb06.png)
+![](https://s3.hedgedoc.org/demo/uploads/upload_2a584d298884a284912dd5b54c1ceb06.png)
 
 Blocks are distributed linearly and inversely proportional to the individual target block times.
 
@@ -97,7 +97,7 @@ Blocks are distributed linearly and inversely proportional to the individual tar
 
 ### Hash rate profiles used:
 
-![](https://codimd.s3.shivering-isles.com/demo/uploads/upload_90ccf563f6ab41525a82b9274502a064.png)
+![](https://s3.hedgedoc.org/demo/uploads/upload_90ccf563f6ab41525a82b9274502a064.png)
 
 ### Simulation parameters (Case 02):
 
@@ -137,11 +137,11 @@ algo_2_target_block_time_adjust = 1.0 - df[i]
 
 The simulation for target times of 336.0 s and 144.0 s for algo 1 and algo 2 respectively, corresponding to a `df = [0.40]` adjustment factor, is shown here.
 
-![](https://codimd.s3.shivering-isles.com/demo/uploads/upload_2bf4b0cbfa55325c694d2a20ce4d7576.png)
+![](https://s3.hedgedoc.org/demo/uploads/upload_2bf4b0cbfa55325c694d2a20ce4d7576.png)
 
 It is noticeable that, for this case with added randomness, delta solve times are random, but its average remain within a constant band. Integrated system block time shows a fairly constant average, as shown below.
 
-![](https://codimd.s3.shivering-isles.com/demo/uploads/upload_ad24f227407730a4627dc7109e04aa72.png)
+![](https://s3.hedgedoc.org/demo/uploads/upload_ad24f227407730a4627dc7109e04aa72.png)
 
 ### Block distribution (Case 02):
 
@@ -172,6 +172,6 @@ Factor:  0.0
   -  Algo 2 target time adjust: 1.0 , at 240.0 s,  1644 blocks,  50.3 %
 ```
 
-![](https://codimd.s3.shivering-isles.com/demo/uploads/upload_10536da262eb68b61f7761cac8a8aa30.png)
+![](https://s3.hedgedoc.org/demo/uploads/upload_10536da262eb68b61f7761cac8a8aa30.png)
 
 Blocks are distributed linearly and inversely proportional to the individual target block times, irrespective of the randomness introduced.

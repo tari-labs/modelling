@@ -2,12 +2,12 @@
 
 (_The code base is available on GitHub at [**tari-labs/modelling/scenarios/multi_pow_01**](https://github.com/tari-labs/modelling/tree/master/scenarios/multi_pow_01)_)
 
-(_The report must be [**viewed here**](https://demo.codimd.org/s/SksWPUHeD) for correct rendering of the images._)
+(_If not using HedgeDoc, the report must be [**viewed here**](https://demo.hedgedoc.org/Nux3iRE_TXSX2qH2m1KUMw), but, unfortunately lll images were lost due to change over from https://codimd.s3.shivering-isles.com._) 
 
 
 ## General Approach
 
-The general approach followed with this simulation is to replace the random mining process with a deterministic process. This has been done by establishing a relationship between target difficulty, available hash rate and achieved block time, which will always yield average results with a single calculation. Mining behavior that can be investigated with this approach are then based on what will happen in the average scenario. Trying to use random number generators to simulate the random mining process in the average scenario, many many iterations must be performed for each measurement, due to the law of large numbers, as explained in [this reports](https://tlu.tarilabs.com/network-analysis/probabilistic-attack/building_blocks.html#monte-carlo-simulations).
+The general approach followed with this simulation is to replace the random mining process with a deterministic process. This has been done by establishing a relationship between target difficulty, available hash rate and achieved block time, which will always yield average results with a single calculation. Mining behavior that can be investigated with this approach are then based on what will happen in the average scenario. Trying to use random number generators to simulate the random mining process in the average scenario, many many iterations must be performed for each measurement, due to the law of large numbers.
 
 
 ## Block Time Estimate
@@ -18,14 +18,17 @@ Historical Bitcoin data shows a linear relationship between `block time` and `di
 
 The *Hash Rate vs Difficulty* graph shows historical hash rate estimation vs target difficulty. In the Bitcoin network, [target difficulty](https://en.bitcoin.it/wiki/Difficulty) is adjusted every 2016 blocks, approximately every two weeks. Hash rate is not directly measurable, and is estimated using relationship between measured bock time and target difficulty.
 
+https://codimd.s3.shivering-isles.com/demo/uploads/upload_14e1f838125422f32aed57ecfd6d0ead.png
 ![](https://codimd.s3.shivering-isles.com/demo/uploads/upload_14e1f838125422f32aed57ecfd6d0ead.png)
 
 By dividing target difficulty with estimated hash rate, and plotting that against block time, the linear relationship is evident.
 
+https://codimd.s3.shivering-isles.com/demo/uploads/upload_35d207ad1f62d861ab9568695966e31b.png
 ![](https://codimd.s3.shivering-isles.com/demo/uploads/upload_35d207ad1f62d861ab9568695966e31b.png)
 
 Consequently, plotting the inverse relationship yields an exponential relationship. 
 
+https://codimd.s3.shivering-isles.com/demo/uploads/upload_82e07e49c2e44ded0f8c9fac4508760d.png
 ![](https://codimd.s3.shivering-isles.com/demo/uploads/upload_82e07e49c2e44ded0f8c9fac4508760d.png)
 
 
@@ -33,6 +36,7 @@ Consequently, plotting the inverse relationship yields an exponential relationsh
 
 These graphs show the linear relationship between `block time` and `difficulty/hash rate` as used in the simulations. The linear equation parameters were chosen to simulate the effect of having different mining algorithms, each with 10 times more available hash rate than the preceding algorithm, with corresponding difficulty, to produce the same block time. It is real easy to visualize that if target difficulty increases, with having a constant hash rate, block time will increase, and vice versa.
 
+https://codimd.s3.shivering-isles.com/demo/uploads/upload_f47fbb0d21e5bb3de3b137fbf4a48991.png
 ![](https://codimd.s3.shivering-isles.com/demo/uploads/upload_f47fbb0d21e5bb3de3b137fbf4a48991.png)
 
 
